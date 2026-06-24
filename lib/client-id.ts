@@ -14,8 +14,11 @@ export function origin(request: NextRequest): string {
   return `${proto}://${host}`;
 }
 
+// Versioned so a scope-ceiling change re-registers as a fresh CIMD client.
+// PostHog locks an app's allowed scopes at first registration, so widening the
+// ceiling means a new client_id, not an edit to the existing document.
 export function clientId(request: NextRequest): string {
-  return `${origin(request)}/.well-known/posthog-client.json`;
+  return `${origin(request)}/.well-known/posthog-client-v2.json`;
 }
 
 // Cookies are Secure on HTTPS (Vercel) but not on plain-HTTP localhost, where a
