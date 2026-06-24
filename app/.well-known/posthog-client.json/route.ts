@@ -31,7 +31,8 @@ export function GET(request: NextRequest) {
       verification_token: process.env.POSTHOG_VERIFICATION_TOKEN || undefined,
       // Optional scope ceiling. Tokens issued to this client can never exceed
       // these, regardless of what an individual account request asks for.
-      scopes: ["insight:read", "project:read", "person:read"],
+      // query:read lets HogFarm run HogQL to pull analytics back into its own UI.
+      scopes: ["query:read", "insight:read", "project:read", "person:read"],
     },
   });
 }

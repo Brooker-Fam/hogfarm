@@ -7,7 +7,7 @@ import { finishProvisioning } from "@/lib/provision-flow";
 
 // Scopes HogFarm wants on its users' behalf — enough to read analytics back
 // into our own dashboard. Kept under the ceiling declared in the CIMD doc.
-const SCOPES = ["insight:read", "project:read", "person:read"];
+const SCOPES = ["query:read", "insight:read", "project:read", "person:read"];
 
 export async function POST(request: NextRequest) {
   const { email, name, farmName } = await request.json();
