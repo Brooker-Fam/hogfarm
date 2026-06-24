@@ -1,10 +1,14 @@
-import { exchangeToken, createResource, createDeepLink } from "@/lib/posthog-provisioning";
+import { exchangeToken, createResource } from "@/lib/posthog-provisioning";
 import { saveFarm } from "@/lib/db";
 
 /**
  * Steps 2 and 3 of the flow, shared by both account paths: trade the
- * authorization code for tokens, provision a project, mint the
- * "Open in PostHog" deep link, and persist the result.
+ * authorization code for tokens, provision a project, and persist the result.
+ *
+ * The "Open in PostHog" link is handled separately via the requires_auth
+ * handshake (see app/api/open-in-posthog), which any CIMD partner can use. The
+ * privileged /deep_links magic-login endpoint needs PostHog to enable it per
+ * partner, so we don't depend on it here.
  */
 export async function finishProvisioning(params: {
   code: string;
@@ -22,8 +26,6 @@ export async function finishProvisioning(params: {
     projectName: `${params.farmName} site`,
   });
 
-  const deepLink = await createDeepLink(tokens.accessToken).catch(() => null);
-
   // Persist so HogFarm can call PostHog for this user again later. No-op if no
   // DATABASE_URL is configured.
   await saveFarm({
@@ -40,6 +42,5 @@ export async function finishProvisioning(params: {
     projectApiKey: resource.apiKey,
     posthogHost: resource.host,
     teamId: resource.teamId,
-    openInPostHog: deepLink,
   };
 }

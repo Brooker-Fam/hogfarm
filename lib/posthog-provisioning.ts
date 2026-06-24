@@ -168,7 +168,12 @@ export async function createResource(params: {
 
 /**
  * Generate a single-use link that drops the user straight into their PostHog
- * project, already logged in. This is the "Open in PostHog" button.
+ * project, already logged in (a magic login).
+ *
+ * Note: this privileged endpoint must be enabled by PostHog per partner and
+ * returns 403 `deep_links_not_enabled` otherwise. For a self-registered CIMD
+ * partner, prefer the requires_auth handshake (see openInPostHogUrl) for the
+ * "Open in PostHog" button — it needs no special enablement.
  */
 export async function createDeepLink(accessToken: string, purpose = "dashboard"): Promise<string> {
   const res = await fetch(`${HOST}/api/agentic/provisioning/deep_links`, {

@@ -6,27 +6,45 @@ import { useSearchParams } from "next/navigation";
 interface Result {
   projectApiKey: string;
   posthogHost: string;
-  openInPostHog?: string;
 }
 
 function Builder() {
   const params = useSearchParams();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(params.get("email") ?? "");
   const [name, setName] = useState("");
   const [farmName, setFarmName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [opening, setOpening] = useState(false);
   const [error, setError] = useState<string | null>(params.get("error"));
 
   // The existing-user consent flow redirects back here with the result in the URL.
   const callbackResult: Result | null = params.get("status") === "complete"
-    ? {
-        projectApiKey: params.get("apiKey") ?? "",
-        posthogHost: params.get("host") ?? "",
-        openInPostHog: params.get("openInPostHog") ?? undefined,
-      }
+    ? { projectApiKey: params.get("apiKey") ?? "", posthogHost: params.get("host") ?? "" }
     : null;
 
   const [result, setResult] = useState<Result | null>(callbackResult);
+
+  async function openInPostHog() {
+    setOpening(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/open-in-posthog", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, farmName }),
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        window.location.href = data.url;
+      } else {
+        setError(data.error ?? "Could not open PostHog");
+        setOpening(false);
+      }
+    } catch {
+      setError("Network error");
+      setOpening(false);
+    }
+  }
 
   async function provision(e: React.FormEvent) {
     e.preventDefault();
@@ -90,13 +108,11 @@ function Builder() {
             We provisioned a PostHog project behind the scenes. Your site sends events with this
             project key:
           </p>
-          <div className="kv">{result.projectApiKey || "(provisioned)"}</div>
+          {result.projectApiKey && <div className="kv">{result.projectApiKey}</div>}
           <div className="kv">{result.posthogHost}</div>
-          {result.openInPostHog && (
-            <a className="open" href={result.openInPostHog} target="_blank" rel="noreferrer">
-              Open in PostHog →
-            </a>
-          )}
+          <button className="open" onClick={openInPostHog} disabled={opening || !email}>
+            {opening ? "Opening…" : "Open in PostHog →"}
+          </button>
         </div>
       )}
 
@@ -106,7 +122,7 @@ function Builder() {
           <li>HogFarm called <code>account_requests</code> with your email and a PKCE challenge.</li>
           <li>PostHog created (or located) your account and returned an authorization code.</li>
           <li>HogFarm exchanged the code for tokens, then called <code>resources</code> to provision a project.</li>
-          <li>The project API key got wired into your farm site. The deep link logs you straight into PostHog.</li>
+          <li>The project API key got wired into your farm site. &quot;Open in PostHog&quot; re-runs the handshake to land you in your project.</li>
         </ol>
         <p>
           Full walkthrough in the{" "}

@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   url.searchParams.set("status", "complete");
   url.searchParams.set("apiKey", result.projectApiKey);
   url.searchParams.set("host", result.posthogHost);
-  if (result.openInPostHog) url.searchParams.set("openInPostHog", result.openInPostHog);
+  if (email) url.searchParams.set("email", email);
 
   const res = NextResponse.redirect(url);
   res.cookies.delete("hogfarm_pkce");

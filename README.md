@@ -54,6 +54,8 @@ exchange. See [`lib/pkce.ts`](lib/pkce.ts).
 | [`lib/posthog-provisioning.ts`](lib/posthog-provisioning.ts) | Typed client for the three calls + deep links. Start here. |
 | [`app/api/provision/route.ts`](app/api/provision/route.ts) | Orchestrates the flow when a user clicks "Create my farm site". |
 | [`app/api/oauth/callback/route.ts`](app/api/oauth/callback/route.ts) | Completes the flow for users who already have a PostHog account. |
+| [`app/api/open-in-posthog/route.ts`](app/api/open-in-posthog/route.ts) | "Open in PostHog" — the requires_auth handshake as a deep link. |
+| [`lib/db.ts`](lib/db.ts) | Optional Neon persistence in a namespaced `hogfarm` schema. |
 | [`lib/pkce.ts`](lib/pkce.ts) | PKCE verifier/challenge. |
 | [`app/page.tsx`](app/page.tsx) | The farm-builder UI. |
 
@@ -69,11 +71,23 @@ both:
   The user gets a welcome email to set their password.
 - **Existing PostHog user** → `{ type: "requires_auth", url }`. That user has to
   consent in the browser first. You send them to `url`; PostHog redirects back to
-  your `redirect_uri` with a code. This is also exactly the **"Open in PostHog"**
-  deep-link pattern.
+  your `redirect_uri` with a code.
 
 HogFarm handles the new-user path inline in `/api/provision`, and the
 existing-user path via the redirect in `/api/oauth/callback`.
+
+### "Open in PostHog" (deep linking)
+
+The same `requires_auth` handshake *is* the deep-link pattern: to drop an
+already-provisioned user into their project, re-run `account_requests` for their
+email and send them to the returned `url`. Any CIMD partner can do this with no
+special setup — see [`app/api/open-in-posthog/route.ts`](app/api/open-in-posthog/route.ts).
+
+> There's also a privileged `/deep_links` endpoint that mints a single-use magic
+> login. It must be enabled by PostHog per partner (it returns 403
+> `deep_links_not_enabled` otherwise), so it's not the default path for a
+> self-registered partner. `createDeepLink` is included in the client for
+> reference, but the app uses the handshake above.
 
 ---
 
