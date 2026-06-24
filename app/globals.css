@@ -1,0 +1,152 @@
+:root {
+  --bg: #0f1410;
+  --panel: #18211a;
+  --border: #2a3a2d;
+  --text: #e8f0e8;
+  --muted: #8fae93;
+  --accent: #6ddf6d;
+  --accent-ink: #0f1410;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+}
+
+main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 64px 24px 96px;
+}
+
+.hero h1 {
+  font-size: 40px;
+  margin: 0 0 8px;
+  letter-spacing: -0.02em;
+}
+
+.hero p {
+  color: var(--muted);
+  font-size: 18px;
+  margin: 0 0 8px;
+}
+
+.tag {
+  display: inline-block;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 12px;
+  margin-bottom: 24px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px;
+  margin-top: 32px;
+}
+
+label {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin: 16px 0 6px;
+}
+
+input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 12px 14px;
+  font-size: 15px;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+button {
+  margin-top: 24px;
+  width: 100%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: none;
+  border-radius: 10px;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.result {
+  margin-top: 32px;
+}
+
+.kv {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 8px 0;
+  word-break: break-all;
+}
+
+.open {
+  display: inline-block;
+  margin-top: 16px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  text-decoration: none;
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 12px 18px;
+}
+
+.error {
+  margin-top: 24px;
+  border: 1px solid #5a2a2a;
+  background: #1f1414;
+  color: #f0b5b5;
+  border-radius: 10px;
+  padding: 14px;
+  font-size: 14px;
+}
+
+.steps {
+  margin-top: 48px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.steps ol {
+  padding-left: 20px;
+}
+
+a {
+  color: var(--accent);
+}
