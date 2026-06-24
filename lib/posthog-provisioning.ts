@@ -30,12 +30,6 @@ export interface TokenResult {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
-  availableTeams: Array<{
-    id: number;
-    name: string;
-    organization_id: string;
-    organization_name: string;
-  }>;
 }
 
 export interface ProvisionedResource {
@@ -55,15 +49,19 @@ class ProvisioningError extends Error {
   }
 }
 
+interface ErrorBody {
+  error?: string | { code?: string; message?: string };
+  error_description?: string;
+}
+
 async function parseError(res: Response): Promise<ProvisioningError> {
-  const body = await res.json().catch(() => ({}) as Record<string, unknown>);
+  const body = (await res.json().catch(() => ({}))) as ErrorBody;
   // Provisioning endpoints use { error: { code, message } }; the token endpoint
   // uses the OAuth { error, error_description } shape. Handle both.
-  const err = (body as any).error;
-  if (err && typeof err === "object") {
-    return new ProvisioningError(res.status, err.code ?? "error", err.message ?? res.statusText);
+  if (body.error && typeof body.error === "object") {
+    return new ProvisioningError(res.status, body.error.code ?? "error", body.error.message ?? res.statusText);
   }
-  return new ProvisioningError(res.status, err ?? "error", (body as any).error_description ?? res.statusText);
+  return new ProvisioningError(res.status, body.error ?? "error", body.error_description ?? res.statusText);
 }
 
 /**
@@ -134,7 +132,6 @@ export async function exchangeToken(code: string, codeVerifier: string): Promise
     accessToken: body.access_token,
     refreshToken: body.refresh_token,
     expiresIn: body.expires_in,
-    availableTeams: body.account?.available_teams ?? [],
   };
 }
 
@@ -162,7 +159,14 @@ export async function createResource(params: {
   if (!res.ok) throw await parseError(res);
 
   const body = await res.json();
-  const access = body.complete?.access_configuration ?? {};
+  // Resource creation can come back still provisioning (no api_key yet),
+  // typically only on the very first call against a freshly registered CIMD
+  // app. Surface it as a clear, retryable error instead of a blank key. Don't
+  // blindly re-POST — that would create a second project.
+  const access = body.complete?.access_configuration;
+  if (body.status !== "complete" || !access?.api_key) {
+    throw new ProvisioningError(202, "resource_provisioning", "Project is still provisioning. Retry in a moment.");
+  }
   return { teamId: String(body.id), apiKey: access.api_key, host: access.host };
 }
 

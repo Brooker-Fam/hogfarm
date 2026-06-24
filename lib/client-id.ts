@@ -17,3 +17,15 @@ export function origin(request: NextRequest): string {
 export function clientId(request: NextRequest): string {
   return `${origin(request)}/.well-known/posthog-client.json`;
 }
+
+// Cookies are Secure on HTTPS (Vercel) but not on plain-HTTP localhost, where a
+// browser would otherwise silently drop them and break the consent flow.
+export function shortLivedCookieOpts(request: NextRequest) {
+  return {
+    httpOnly: true,
+    secure: origin(request).startsWith("https"),
+    sameSite: "lax" as const,
+    maxAge: 600,
+    path: "/",
+  };
+}

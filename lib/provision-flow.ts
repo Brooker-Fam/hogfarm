@@ -22,20 +22,18 @@ export async function finishProvisioning(params: {
   const resource = await createResource({
     accessToken: tokens.accessToken,
     serviceId: "free",
-    labelPrefix: params.farmName,
+    // label_prefix is capped at 25 chars by the API; trim defensively.
+    labelPrefix: params.farmName.slice(0, 25),
     projectName: `${params.farmName} site`,
   });
 
-  // Persist so HogFarm can call PostHog for this user again later. No-op if no
-  // DATABASE_URL is configured.
+  // Persist the provisioning record. No-op if no DATABASE_URL is configured.
   await saveFarm({
     farmName: params.farmName,
     email: params.email,
     posthogTeamId: resource.teamId,
     projectApiKey: resource.apiKey,
     region: params.region ?? "US",
-    accessToken: tokens.accessToken,
-    refreshToken: tokens.refreshToken,
   }).catch((err) => console.error("saveFarm failed:", err));
 
   return {

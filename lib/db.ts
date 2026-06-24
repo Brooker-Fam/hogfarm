@@ -24,14 +24,16 @@ export interface ProvisionedFarm {
   farmName: string;
   email: string;
   posthogTeamId: string;
-  projectApiKey: string;
+  projectApiKey: string; // phc_… — publishable, safe to store and ship to the browser
   region: string;
-  // Tokens let us call PostHog again later. In production these must be
-  // encrypted at rest; kept plain here only to keep the example readable.
-  accessToken: string;
-  refreshToken: string;
 }
 
+// A production partner would ALSO store the OAuth access + refresh tokens here
+// (encrypted at rest) so it can keep calling PostHog for this user later. We
+// deliberately don't persist tokens in this public demo — storing live refresh
+// tokens in a throwaway DB is a needless secret to expose — and keep only the
+// non-secret provisioning record.
+//
 // SCHEMA is a hardcoded constant, never user input, so inlining it into the DDL
 // below is safe. All runtime values go through tagged-template bind parameters.
 export async function ensureSchema(): Promise<void> {
@@ -45,8 +47,6 @@ export async function ensureSchema(): Promise<void> {
       posthog_team_id TEXT NOT NULL,
       project_api_key TEXT NOT NULL,
       region          TEXT NOT NULL DEFAULT 'US',
-      access_token    TEXT NOT NULL,
-      refresh_token   TEXT NOT NULL,
       created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `;
@@ -59,17 +59,14 @@ export async function ensureSchema(): Promise<void> {
 export async function saveFarm(farm: ProvisionedFarm): Promise<void> {
   if (!sql) return;
   await ensureSchema();
-  // Re-provisioning the same email+team updates the stored tokens rather than
+  // Re-provisioning the same email+team refreshes the record rather than
   // duplicating the row.
   await sql`
     INSERT INTO hogfarm.provisioned_farms
-      (farm_name, email, posthog_team_id, project_api_key, region, access_token, refresh_token)
-    VALUES (${farm.farmName}, ${farm.email}, ${farm.posthogTeamId}, ${farm.projectApiKey},
-            ${farm.region}, ${farm.accessToken}, ${farm.refreshToken})
+      (farm_name, email, posthog_team_id, project_api_key, region)
+    VALUES (${farm.farmName}, ${farm.email}, ${farm.posthogTeamId}, ${farm.projectApiKey}, ${farm.region})
     ON CONFLICT (email, posthog_team_id)
-    DO UPDATE SET access_token = EXCLUDED.access_token,
-                  refresh_token = EXCLUDED.refresh_token,
-                  project_api_key = EXCLUDED.project_api_key
+    DO UPDATE SET project_api_key = EXCLUDED.project_api_key, farm_name = EXCLUDED.farm_name
   `;
 }
 

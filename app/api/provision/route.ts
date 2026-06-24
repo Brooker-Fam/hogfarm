@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
-import { clientId } from "@/lib/client-id";
+import { clientId, shortLivedCookieOpts } from "@/lib/client-id";
 import { createPkce } from "@/lib/pkce";
 import { createAccountRequest, ProvisioningError } from "@/lib/posthog-provisioning";
 import { finishProvisioning } from "@/lib/provision-flow";
@@ -32,13 +32,16 @@ export async function POST(request: NextRequest) {
     });
 
     // Existing PostHog user: they must consent in the browser. Stash the PKCE
-    // verifier in an httpOnly cookie and hand the consent URL to the frontend.
+    // verifier (and the OAuth state, for CSRF binding) in httpOnly cookies and
+    // hand the consent URL to the frontend.
     if (account.type === "requires_auth") {
-      const cookieOpts = { httpOnly: true, secure: true, sameSite: "lax" as const, maxAge: 600, path: "/" };
+      const cookieOpts = shortLivedCookieOpts(request);
+      const state = new URL(account.url).searchParams.get("state") ?? "";
       const res = NextResponse.json({ status: "requires_auth", url: account.url });
       res.cookies.set("hogfarm_pkce", pkce.verifier, cookieOpts);
       res.cookies.set("hogfarm_farm", farmName, cookieOpts);
       res.cookies.set("hogfarm_email", email, cookieOpts);
+      res.cookies.set("hogfarm_state", state, cookieOpts);
       return res;
     }
 

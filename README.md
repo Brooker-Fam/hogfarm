@@ -54,7 +54,6 @@ exchange. See [`lib/pkce.ts`](lib/pkce.ts).
 | [`lib/posthog-provisioning.ts`](lib/posthog-provisioning.ts) | Typed client for the three calls + deep links. Start here. |
 | [`app/api/provision/route.ts`](app/api/provision/route.ts) | Orchestrates the flow when a user clicks "Create my farm site". |
 | [`app/api/oauth/callback/route.ts`](app/api/oauth/callback/route.ts) | Completes the flow for users who already have a PostHog account. |
-| [`app/api/open-in-posthog/route.ts`](app/api/open-in-posthog/route.ts) | "Open in PostHog" — the requires_auth handshake as a deep link. |
 | [`lib/db.ts`](lib/db.ts) | Optional Neon persistence in a namespaced `hogfarm` schema. |
 | [`lib/pkce.ts`](lib/pkce.ts) | PKCE verifier/challenge. |
 | [`app/page.tsx`](app/page.tsx) | The farm-builder UI. |
@@ -63,8 +62,8 @@ exchange. See [`lib/pkce.ts`](lib/pkce.ts).
 
 ## The two account paths
 
-`account_requests` returns one of two shapes, and a real partner has to handle
-both:
+`account_requests` returns one of these shapes, and a real partner has to handle
+each:
 
 - **New email** → `{ type: "oauth", code }`. The account is linked silently; you
   get an authorization code immediately and finish all three steps server-side.
@@ -72,22 +71,30 @@ both:
 - **Existing PostHog user** → `{ type: "requires_auth", url }`. That user has to
   consent in the browser first. You send them to `url`; PostHog redirects back to
   your `redirect_uri` with a code.
+- **First-ever call from a new CIMD client** → HTTP 202 `{ type: "registering" }`.
+  PostHog is fetching your metadata document in the background; wait `retry_after`
+  seconds and call again. You'll hit this exactly once per deployment.
 
 HogFarm handles the new-user path inline in `/api/provision`, and the
 existing-user path via the redirect in `/api/oauth/callback`.
 
-### "Open in PostHog" (deep linking)
+### "Open in PostHog"
 
-The same `requires_auth` handshake *is* the deep-link pattern: to drop an
-already-provisioned user into their project, re-run `account_requests` for their
-email and send them to the returned `url`. Any CIMD partner can do this with no
-special setup — see [`app/api/open-in-posthog/route.ts`](app/api/open-in-posthog/route.ts).
+After provisioning, HogFarm links the user straight to their project at
+`{host}/project/{teamId}` (PostHog prompts login if they aren't signed in yet).
+Simple and reliable for any partner.
 
-> There's also a privileged `/deep_links` endpoint that mints a single-use magic
-> login. It must be enabled by PostHog per partner (it returns 403
-> `deep_links_not_enabled` otherwise), so it's not the default path for a
-> self-registered partner. `createDeepLink` is included in the client for
-> reference, but the app uses the handshake above.
+For a seamless **no-login** deep link, PostHog has two richer options, neither of
+which a freshly self-registered CIMD partner gets for free:
+
+- The privileged `/deep_links` endpoint mints a single-use magic login (no
+  consent screen). It must be enabled by PostHog per partner — it returns 403
+  `deep_links_not_enabled` otherwise. `createDeepLink` is in the client for
+  reference.
+- The `requires_auth` handshake (re-run `account_requests`, send the user to the
+  returned consent URL) lands them in their project after a quick login/consent.
+
+We keep the demo on the plain project link to stay dependency-free.
 
 ---
 
@@ -122,8 +129,11 @@ Open http://localhost:3000.
 - **Partner-mediated billing.** Real partners can receive usage + invoices via
   webhook and bill their users directly (the Stripe-shared-payment-token model).
   Out of scope for a v1 demo.
-- **Token storage / refresh.** A production partner persists the access + refresh
-  tokens per user and refreshes them. HogFarm uses them once and drops them.
+- **Token storage / refresh.** A production partner persists each user's access +
+  refresh tokens (encrypted at rest) and refreshes them to keep calling PostHog.
+  HogFarm uses the tokens once and persists only the non-secret provisioning
+  record (team id, publishable `phc_` key) — see [`lib/db.ts`](lib/db.ts). Storing
+  live refresh tokens in a public demo DB isn't worth the exposure.
 - **Idempotency, deprovisioning, list-resources.** All supported by the API;
   omitted here for clarity.
 
