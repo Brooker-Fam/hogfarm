@@ -34,20 +34,16 @@ export async function POST(request: NextRequest) {
     // Existing PostHog user: they must consent in the browser. Stash the PKCE
     // verifier in an httpOnly cookie and hand the consent URL to the frontend.
     if (account.type === "requires_auth") {
+      const cookieOpts = { httpOnly: true, secure: true, sameSite: "lax" as const, maxAge: 600, path: "/" };
       const res = NextResponse.json({ status: "requires_auth", url: account.url });
-      res.cookies.set("hogfarm_pkce", pkce.verifier, {
-        httpOnly: true,
-        secure: true,
-        sameSite: "lax",
-        maxAge: 600,
-        path: "/",
-      });
-      res.cookies.set("hogfarm_farm", farmName, { httpOnly: true, secure: true, sameSite: "lax", maxAge: 600, path: "/" });
+      res.cookies.set("hogfarm_pkce", pkce.verifier, cookieOpts);
+      res.cookies.set("hogfarm_farm", farmName, cookieOpts);
+      res.cookies.set("hogfarm_email", email, cookieOpts);
       return res;
     }
 
     // New user: we already have the code. Finish all three steps server-side.
-    const result = await finishProvisioning(account.code, pkce.verifier, farmName);
+    const result = await finishProvisioning({ code: account.code, verifier: pkce.verifier, farmName, email, region: "US" });
     return NextResponse.json({ status: "complete", ...result });
   } catch (err) {
     if (err instanceof ProvisioningError) {

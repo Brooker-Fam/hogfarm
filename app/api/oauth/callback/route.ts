@@ -11,12 +11,13 @@ export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
   const verifier = request.cookies.get("hogfarm_pkce")?.value;
   const farmName = request.cookies.get("hogfarm_farm")?.value ?? "Your farm";
+  const email = request.cookies.get("hogfarm_email")?.value ?? "";
 
   if (!code || !verifier) {
     return NextResponse.redirect(new URL("/?error=missing_code", request.url));
   }
 
-  const result = await finishProvisioning(code, verifier, farmName);
+  const result = await finishProvisioning({ code, verifier, farmName, email, region: "US" });
 
   // Hand the result to the home page. The API key here is a publishable project
   // token (phc_), safe to expose to the browser — that is what SDKs ship with.
@@ -29,5 +30,6 @@ export async function GET(request: NextRequest) {
   const res = NextResponse.redirect(url);
   res.cookies.delete("hogfarm_pkce");
   res.cookies.delete("hogfarm_farm");
+  res.cookies.delete("hogfarm_email");
   return res;
 }
