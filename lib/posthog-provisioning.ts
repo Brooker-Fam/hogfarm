@@ -127,11 +127,25 @@ export async function exchangeToken(code: string, codeVerifier: string): Promise
 
   if (!res.ok) throw await parseError(res);
 
-  const body = await res.json();
+  return parseTokenBody(await res.json());
+}
+
+/** Refresh an expired access token. Refresh tokens are single-use and rotate. */
+export async function refreshAccessToken(refreshToken: string): Promise<TokenResult> {
+  const res = await fetch(`${HOST}/api/agentic/oauth/token`, {
+    method: "POST",
+    headers: { "API-Version": API_VERSION, "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: refreshToken }),
+  });
+  if (!res.ok) throw await parseError(res);
+  return parseTokenBody(await res.json());
+}
+
+function parseTokenBody(body: Record<string, unknown>): TokenResult {
   return {
-    accessToken: body.access_token,
-    refreshToken: body.refresh_token,
-    expiresIn: body.expires_in,
+    accessToken: body.access_token as string,
+    refreshToken: body.refresh_token as string,
+    expiresIn: body.expires_in as number,
   };
 }
 

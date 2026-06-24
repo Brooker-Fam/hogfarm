@@ -1,53 +1,69 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
-import { clientId, shortLivedCookieOpts } from "@/lib/client-id";
+import { clientId, shortLivedCookieOpts, origin } from "@/lib/client-id";
 import { createPkce } from "@/lib/pkce";
 import { createAccountRequest, ProvisioningError } from "@/lib/posthog-provisioning";
-import { finishProvisioning } from "@/lib/provision-flow";
+import { finishProvisioning, FarmInput } from "@/lib/provision-flow";
 
-// Scopes HogFarm wants on its users' behalf — enough to read analytics back
-// into our own dashboard. Kept under the ceiling declared in the CIMD doc.
 const SCOPES = ["query:read", "insight:read", "project:read", "person:read"];
 
-export async function POST(request: NextRequest) {
-  const { email, name, farmName } = await request.json();
+function normalizeInput(raw: Record<string, unknown>): FarmInput {
+  const name = String(raw.name ?? "").trim();
+  const products = String(raw.products ?? "")
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  return {
+    name,
+    ownerName: String(raw.ownerName ?? "").trim(),
+    email: String(raw.email ?? "").trim(),
+    tagline: String(raw.tagline ?? "").trim() || `Fresh from ${name}`,
+    location: String(raw.location ?? "").trim(),
+    products: products.length ? products : ["Farm eggs", "Raw honey", "Seasonal vegetables"],
+  };
+}
 
-  if (!email || !farmName) {
-    return NextResponse.json({ error: "email and farmName are required" }, { status: 400 });
+export async function POST(request: NextRequest) {
+  const input = normalizeInput(await request.json());
+
+  if (!input.email || !input.name) {
+    return NextResponse.json({ error: "Farm name and email are required" }, { status: 400 });
   }
 
   const pkce = createPkce();
 
   try {
-    // Step 1 — create or locate the account.
     const account = await createAccountRequest({
       id: randomUUID(),
-      email,
-      name: name || email,
+      email: input.email,
+      name: input.ownerName || input.email,
       clientId: clientId(request),
       codeChallenge: pkce.challenge,
       scopes: SCOPES,
       region: "US",
-      organizationName: farmName,
+      organizationName: input.name,
     });
 
-    // Existing PostHog user: they must consent in the browser. Stash the PKCE
-    // verifier (and the OAuth state, for CSRF binding) in httpOnly cookies and
-    // hand the consent URL to the frontend.
+    // Existing PostHog user: consent in the browser. Stash everything we need to
+    // finish after the redirect in httpOnly cookies.
     if (account.type === "requires_auth") {
-      const cookieOpts = shortLivedCookieOpts(request);
+      const opts = shortLivedCookieOpts(request);
       const state = new URL(account.url).searchParams.get("state") ?? "";
       const res = NextResponse.json({ status: "requires_auth", url: account.url });
-      res.cookies.set("hogfarm_pkce", pkce.verifier, cookieOpts);
-      res.cookies.set("hogfarm_farm", farmName, cookieOpts);
-      res.cookies.set("hogfarm_email", email, cookieOpts);
-      res.cookies.set("hogfarm_state", state, cookieOpts);
+      res.cookies.set("hogfarm_pkce", pkce.verifier, opts);
+      res.cookies.set("hogfarm_state", state, opts);
+      res.cookies.set("hogfarm_input", JSON.stringify(input), opts);
       return res;
     }
 
-    // New user: we already have the code. Finish all three steps server-side.
-    const result = await finishProvisioning({ code: account.code, verifier: pkce.verifier, farmName, email, region: "US" });
-    return NextResponse.json({ status: "complete", ...result });
+    const { slug } = await finishProvisioning({
+      code: account.code,
+      verifier: pkce.verifier,
+      input,
+      region: "US",
+      origin: origin(request),
+    });
+    return NextResponse.json({ status: "complete", slug });
   } catch (err) {
     if (err instanceof ProvisioningError) {
       return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
