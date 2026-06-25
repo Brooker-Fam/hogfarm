@@ -32,9 +32,8 @@ export function GET(request: NextRequest) {
       // Optional scope ceiling. Tokens issued to this client can never exceed
       // these, regardless of what an individual account request asks for.
       // query:read runs HogQL for the dashboard; sharing_configuration:write mints
-      // the public embed token for inline session-replay playback; endpoint:write
-      // lets us publish the dashboard's queries as saved Endpoints in each new
-      // project at provision time (we then read them back with query:read).
+      // the public embed token for inline session-replay playback; project:write
+      // turns on session recording for a freshly provisioned project.
       scopes: [
         "query:read",
         "insight:read",
@@ -42,7 +41,6 @@ export function GET(request: NextRequest) {
         "person:read",
         "session_recording:read",
         "sharing_configuration:write",
-        "endpoint:write",
         "project:write",
       ],
     },

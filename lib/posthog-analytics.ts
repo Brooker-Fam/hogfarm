@@ -22,13 +22,9 @@ export interface DashboardData {
 const WINDOW_DAYS = 90;
 
 /**
- * Dashboard analytics, read live with the farm's OAuth token (a HogQL `query:read`
- * call against the project's query API). We read inline rather than through the
- * project's saved Endpoints on purpose: an Endpoint serves a cached/materialized
- * result (fresh only within its data_freshness window), which on a just-provisioned
- * project means the dashboard freezes on the initial empty read until the cache
- * expires. Inline always reflects current data — the right trade-off for a dashboard
- * that's viewed right after provisioning while events are still arriving.
+ * Dashboard analytics, read live with the farm's OAuth token — a HogQL `query:read`
+ * call against the project's query API. Read live (uncached) so a just-provisioned
+ * dashboard reflects events the moment they're ingested.
  */
 export async function getDashboardData(farm: Farm): Promise<DashboardData> {
   const token = await validAccessToken(farm);

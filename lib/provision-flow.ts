@@ -1,5 +1,4 @@
 import { exchangeToken, createResource } from "@/lib/posthog-provisioning";
-import { provisionEndpoints } from "@/lib/posthog-endpoints";
 import { enableSessionRecording } from "@/lib/posthog-replay";
 import { createFarm } from "@/lib/db";
 import { encrypt } from "@/lib/crypto";
@@ -57,12 +56,6 @@ export async function finishProvisioning(params: {
 
   // Seed a believable week of demo traffic. Don't fail provisioning if it errors.
   await seedTraffic(resource.apiKey, region, siteUrl).catch((err) => console.error("seedTraffic failed:", err));
-
-  // Publish the dashboard queries as saved Endpoints in the new project. Best-effort:
-  // the dashboard falls back to inline HogQL if this fails, so never block on it.
-  await provisionEndpoints(tokens.accessToken, resource.teamId).catch((err) =>
-    console.error("provisionEndpoints failed:", err),
-  );
 
   await createFarm({
     slug,

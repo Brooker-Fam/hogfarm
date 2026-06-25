@@ -7,9 +7,9 @@ import { finishProvisioning, FarmInput } from "@/lib/provision-flow";
 
 // sharing_configuration:write lets HogFarm mint a public embed token for a farm's
 // latest session recording (rendered inline on the dashboard). session_recording:read
-// covers reading recording metadata. endpoint:write lets us publish the dashboard
-// queries as saved Endpoints in the new project at provision time. These must stay
-// within the v4 CIMD scope ceiling (see posthog-client-v4.json).
+// covers reading recording metadata. project:write turns on session recording for the
+// freshly provisioned project. These must stay within the CIMD scope ceiling (see
+// posthog-client-v5.json).
 const SCOPES = [
   "query:read",
   "insight:read",
@@ -17,7 +17,6 @@ const SCOPES = [
   "person:read",
   "session_recording:read",
   "sharing_configuration:write",
-  "endpoint:write",
   "project:write",
 ];
 

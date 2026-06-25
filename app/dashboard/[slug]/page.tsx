@@ -130,9 +130,7 @@ export default async function Dashboard({
 
           <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 20 }}>
             HogFarm reads this live with the OAuth token from when your account was provisioned — a HogQL{" "}
-            <code>query:read</code> call against your own PostHog project. The same queries are also published as{" "}
-            <a href={`${host}/project/${farm.posthogTeamId}/endpoints`} target="_blank" rel="noreferrer">Endpoints</a>{" "}
-            you can build on. See it all in full at{" "}
+            <code>query:read</code> call against your own PostHog project. See it all in full at{" "}
             <a href={`${host}/project/${farm.posthogTeamId}`} target="_blank" rel="noreferrer">PostHog</a>.
           </p>
         </>
