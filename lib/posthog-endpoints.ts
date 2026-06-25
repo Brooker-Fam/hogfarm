@@ -6,12 +6,20 @@ import { HOST, validAccessToken } from "@/lib/posthog-token";
  * The dashboard's analytics, published as PostHog Endpoints — saved, server-side
  * HogQL queries each farm's project owns and we call by name. This is the read
  * pattern PostHog steers customers toward over ad-hoc query calls: a stable,
- * cached (and where the query shape allows, materialized) API surface.
+ * cached API surface.
  *
  * Endpoints live per-project, so we create them once at provision time (see
  * provisionEndpoints, called from the provisioning flow) using the `endpoint:write`
  * scope. Creating them needs that write scope; *running* them is a plain read, so
  * the dashboard can call them with the same token it uses for everything else.
+ *
+ * We deliberately do NOT materialize at provision time. A freshly materialized
+ * endpoint serves from a backing view that hasn't run its first refresh yet, so it
+ * returns *empty* until then (up to data_freshness_seconds) — which left the trend
+ * and top-pages panels showing zeros on a brand-new dashboard even though the data
+ * was there. Unmaterialized endpoints query live and are correct immediately.
+ * Materialization is a later optimization for a farm with steady traffic, not a
+ * day-one default — which is also PostHog's own guidance for low-traffic endpoints.
  *
  * Each farm creates its endpoints exactly once, so the first version is always 1 —
  * we pin `?version=1` on reads so a future query edit (which cuts a new version)
@@ -71,35 +79,14 @@ async function createEndpoint(token: string, teamId: string, spec: EndpointSpec)
 }
 
 /**
- * Best-effort materialization. The update path degrades gracefully: a query whose
- * shape can't be materialized (e.g. count(DISTINCT ...), ORDER BY ... LIMIT) comes
- * back with a `materialization_error` and stays a live, unmaterialized endpoint
- * rather than failing — so we never block provisioning on it.
- */
-async function tryMaterialize(token: string, teamId: string, name: string): Promise<void> {
-  const res = await fetch(endpointsUrl(teamId, `${name}/`), {
-    method: "PATCH",
-    headers: authHeaders(token),
-    body: JSON.stringify({ is_materialized: true }),
-  });
-  if (!res.ok) return;
-  const body = await res.json().catch(() => ({}));
-  if (body.materialization_error) {
-    console.warn(`endpoint ${name} not materialized: ${body.materialization_error}`);
-  }
-}
-
-/**
- * Create (and where possible materialize) the dashboard endpoints in a freshly
- * provisioned project. Requires an `endpoint:write` token. Best-effort: a failure
- * here just means the dashboard falls back to inline HogQL, so callers should not
- * let it fail provisioning.
+ * Create the dashboard endpoints in a freshly provisioned project. Requires an
+ * `endpoint:write` token. Best-effort: a failure here just means the dashboard
+ * falls back to inline HogQL, so callers should not let it fail provisioning.
+ *
+ * Endpoints are created unmaterialized on purpose — see the module header.
  */
 export async function provisionEndpoints(token: string, teamId: string): Promise<void> {
-  for (const spec of Object.values(SPECS)) {
-    const created = await createEndpoint(token, teamId, spec);
-    if (created) await tryMaterialize(token, teamId, spec.name).catch(() => {});
-  }
+  await Promise.all(Object.values(SPECS).map((spec) => createEndpoint(token, teamId, spec)));
 }
 
 async function runEndpoint<T>(token: string, teamId: string, name: string): Promise<T[] | null> {

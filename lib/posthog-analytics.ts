@@ -2,8 +2,6 @@ import { Farm } from "@/lib/db";
 import { HOST, validAccessToken } from "@/lib/posthog-token";
 import { fetchDashboardViaEndpoints } from "@/lib/posthog-endpoints";
 
-export { HOST, validAccessToken };
-
 export async function hogql<T = unknown[]>(token: string, teamId: string, query: string): Promise<T[]> {
   const res = await fetch(`${HOST}/api/projects/${teamId}/query/`, {
     method: "POST",

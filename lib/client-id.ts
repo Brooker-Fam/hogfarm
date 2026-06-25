@@ -18,7 +18,7 @@ export function origin(request: NextRequest): string {
 // PostHog locks an app's allowed scopes at first registration, so widening the
 // ceiling means a new client_id, not an edit to the existing document.
 export function clientId(request: NextRequest): string {
-  return `${origin(request)}/.well-known/posthog-client-v4.json`;
+  return `${origin(request)}/.well-known/posthog-client-v5.json`;
 }
 
 // Cookies are Secure on HTTPS (Vercel) but not on plain-HTTP localhost, where a

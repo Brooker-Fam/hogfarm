@@ -18,6 +18,7 @@ const SCOPES = [
   "session_recording:read",
   "sharing_configuration:write",
   "endpoint:write",
+  "project:write",
 ];
 
 function normalizeInput(raw: Record<string, unknown>): FarmInput {

@@ -8,6 +8,25 @@ const PUBLIC_HOST: Record<string, string> = {
   EU: "https://eu.posthog.com",
 };
 
+/**
+ * Turn on "Record user sessions" for a freshly provisioned project. New PostHog
+ * projects default to opt-in OFF, and the client-side startSessionRecording()
+ * can't override that master switch — so without this, no sessions ever record.
+ * Needs project:write. Best-effort: returns false rather than throwing.
+ */
+export async function enableSessionRecording(token: string, teamId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${HOST}/api/projects/${teamId}/`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ session_recording_opt_in: true }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 async function latestRecordingId(token: string, teamId: string): Promise<string | null> {
   const res = await fetch(`${HOST}/api/projects/${teamId}/query/`, {
     method: "POST",

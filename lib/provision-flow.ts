@@ -1,5 +1,6 @@
 import { exchangeToken, createResource } from "@/lib/posthog-provisioning";
 import { provisionEndpoints } from "@/lib/posthog-endpoints";
+import { enableSessionRecording } from "@/lib/posthog-replay";
 import { createFarm } from "@/lib/db";
 import { encrypt } from "@/lib/crypto";
 import { uniqueSlug } from "@/lib/slug";
@@ -47,6 +48,12 @@ export async function finishProvisioning(params: {
 
   const slug = await uniqueSlug(input.name);
   const siteUrl = `${origin}/sites/${slug}`;
+
+  // Turn on session replay for the new project so visits actually record
+  // (projects default to opt-in OFF). Best-effort — never block provisioning.
+  await enableSessionRecording(tokens.accessToken, resource.teamId).catch((err) =>
+    console.error("enableSessionRecording failed:", err),
+  );
 
   // Seed a believable week of demo traffic. Don't fail provisioning if it errors.
   await seedTraffic(resource.apiKey, region, siteUrl).catch((err) => console.error("seedTraffic failed:", err));

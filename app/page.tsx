@@ -17,20 +17,35 @@ function Builder() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/provision", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (!res.ok) {
+      // The first call from a freshly versioned client_id comes back 202
+      // "registering" while PostHog fetches our metadata document. Wait and retry
+      // the same request a few times before giving up.
+      for (let attempt = 0; attempt < 6; attempt++) {
+        const res = await fetch("/api/provision", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(form),
+        });
+        const data = await res.json();
+
+        if (data.code === "registering") {
+          await new Promise((r) => setTimeout(r, 3000));
+          continue;
+        }
+        if (data.status === "requires_auth") {
+          window.location.href = data.url;
+          return;
+        }
+        if (data.status === "complete" && data.slug) {
+          router.push(`/dashboard/${data.slug}`);
+          return;
+        }
         setError(data.error ?? "Something went wrong");
         setLoading(false);
-      } else if (data.status === "requires_auth") {
-        window.location.href = data.url;
-      } else {
-        router.push(`/dashboard/${data.slug}`);
+        return;
       }
+      setError("Still setting up your account — give it a moment and try again.");
+      setLoading(false);
     } catch {
       setError("Network error");
       setLoading(false);
