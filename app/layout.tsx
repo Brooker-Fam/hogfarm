@@ -1,24 +1,39 @@
 import type { Metadata } from "next";
-import { Fredoka } from "next/font/google";
+import { Fraunces, Hanken_Grotesk, Spline_Sans_Mono } from "next/font/google";
 import "./globals.css";
 
-// Rounded, friendly display face for headings — the whole farm-whimsy look
-// leans on it. Exposed as a CSS variable so plain CSS and inline styles can both reach it.
-const fredoka = Fredoka({
+// Fraunces — a warm "old-style" soft serif with optical sizing. It carries the
+// whole seed-catalogue / farm-almanac character of the headings.
+const fraunces = Fraunces({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  axes: ["SOFT", "WONK", "opsz"],
   variable: "--font-display",
 });
 
+// Hanken Grotesk — a clean, slightly warm humanist sans for body copy.
+const hanken = Hanken_Grotesk({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-body",
+});
+
+// Spline Sans Mono — used only for the small letterpress "stamp" labels and
+// numeric readouts, the way an old seed packet stamps a lot number.
+const splineMono = Spline_Sans_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-stamp",
+});
+
 export const metadata: Metadata = {
-  title: "HogFarm: websites for your farm",
+  title: "HogFarm — websites for your farm",
   description:
     "A reference implementation of the PostHog agentic provisioning API. Build a farm site, get PostHog analytics provisioned automatically.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={fredoka.variable}>
+    <html lang="en" className={`${fraunces.variable} ${hanken.variable} ${splineMono.variable}`}>
       <body>{children}</body>
     </html>
   );
