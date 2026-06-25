@@ -68,7 +68,7 @@ async function parseError(res: Response): Promise<ProvisioningError> {
  * Step 1. Ask PostHog to create (or locate) an account for this email.
  *
  * @param clientId  Our CIMD URL. Must exactly match where we host the metadata
- *                  document, e.g. https://hogfarm.vercel.app/.well-known/posthog-client.json
+ *                  document, e.g. https://hogfarm.vercel.app/.well-known/posthog-client-v5.json
  */
 export async function createAccountRequest(params: {
   id: string;

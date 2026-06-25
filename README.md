@@ -34,8 +34,15 @@ call, PostHog fetches the document, validates it, and auto-registers your OAuth
 app.
 
 In this repo that document is served from
-[`app/.well-known/posthog-client.json/route.ts`](app/.well-known/posthog-client.json/route.ts).
+[`app/.well-known/posthog-client-v5.json/route.ts`](app/.well-known/posthog-client-v5.json/route.ts).
 The one rule: `client_id` must exactly equal the URL it's served from.
+
+#### Why the filename is versioned
+
+PostHog locks a client's allowed scopes at first registration. To widen the
+scope ceiling you can't edit the existing document — you mint a new `client_id`,
+which means a new versioned filename (`-v5.json`). The earlier `-v#` documents
+are retired; v5 is the live one. See the note in [`lib/client-id.ts`](lib/client-id.ts).
 
 ### How the token exchange stays safe: PKCE
 
@@ -50,7 +57,7 @@ exchange. See [`lib/pkce.ts`](lib/pkce.ts).
 
 | File | What it does |
 | --- | --- |
-| [`app/.well-known/posthog-client.json/route.ts`](app/.well-known/posthog-client.json/route.ts) | Serves the CIMD document. This is your registration. |
+| [`app/.well-known/posthog-client-v5.json/route.ts`](app/.well-known/posthog-client-v5.json/route.ts) | Serves the CIMD document. This is your registration. |
 | [`lib/posthog-provisioning.ts`](lib/posthog-provisioning.ts) | Typed client for the three calls + deep links. Start here. |
 | [`app/api/provision/route.ts`](app/api/provision/route.ts) | Orchestrates the flow when a user clicks "Create my farm site". |
 | [`app/api/oauth/callback/route.ts`](app/api/oauth/callback/route.ts) | Completes the flow for users who already have a PostHog account. |
@@ -102,11 +109,21 @@ We keep the demo on the plain project link to stay dependency-free.
 
 ```bash
 pnpm install
-cp .env.example .env   # optional — defaults work
+cp .env.example .env   # then fill in the two required vars below
 pnpm dev
 ```
 
 Open http://localhost:3000.
+
+Two env vars are **required** to run the provisioning flow — it throws without
+either:
+
+- `DATABASE_URL` — a Neon serverless Postgres connection string. Each provisioned
+  farm is persisted here; [`lib/db.ts`](lib/db.ts) throws `DATABASE_URL not
+  configured` otherwise.
+- `HOGFARM_ENC_KEY` — a hex key used to encrypt stored OAuth tokens and sign
+  dashboard capability links. Generate with `openssl rand -hex 32`;
+  [`lib/crypto.ts`](lib/crypto.ts) throws `HOGFARM_ENC_KEY is not set` otherwise.
 
 > CIMD requires an HTTPS URL that PostHog can fetch, so the very first
 > registration won't complete against `localhost`. To exercise the full
@@ -118,24 +135,38 @@ Open http://localhost:3000.
 1. Push this repo to GitHub (already done if you're reading it there).
 2. In Vercel, **Add New → Project** and import the repo. No build config needed.
 3. Deploy. Your CIMD URL becomes
-   `https://<your-deployment>.vercel.app/.well-known/posthog-client.json` — the
+   `https://<your-deployment>.vercel.app/.well-known/posthog-client-v5.json` — the
    app derives it from the request automatically, no env var required.
-4. (Optional) Set `POSTHOG_VERIFICATION_TOKEN` to raise your rate limit.
+4. Set `DATABASE_URL` and `HOGFARM_ENC_KEY` (required — see above).
+5. (Optional) Set `POSTHOG_VERIFICATION_TOKEN` to raise your rate limit.
 
 ---
 
-## What's intentionally left out
+## Production differences
 
+What this demo does versus what a production build would add:
+
+- **Dashboard access control.** Each farm's dashboard *is* gated: it's reachable
+  only via an unguessable signed capability link — an HMAC of the slug under
+  `HOGFARM_ENC_KEY`, carried as a `?k=` query param and issued at provisioning
+  time (see [`lib/dashboard-auth.ts`](lib/dashboard-auth.ts)). A farm's analytics
+  are private to whoever holds that link. The gaps a production build would close:
+  there's no real user login, the capability link doesn't expire or rotate, and
+  the token rides in the URL (so it can leak via referrer or browser history).
+- **Token refresh.** HogFarm persists each farm's access + refresh tokens
+  encrypted at rest ([`lib/crypto.ts`](lib/crypto.ts), [`lib/db.ts`](lib/db.ts))
+  so it can read analytics back over time, but it doesn't yet refresh them when
+  they expire — a production partner would.
 - **Partner-mediated billing.** Real partners can receive usage + invoices via
   webhook and bill their users directly (the Stripe-shared-payment-token model).
-  Out of scope for a v1 demo.
-- **Token storage / refresh.** A production partner persists each user's access +
-  refresh tokens (encrypted at rest) and refreshes them to keep calling PostHog.
-  HogFarm uses the tokens once and persists only the non-secret provisioning
-  record (team id, publishable `phc_` key) — see [`lib/db.ts`](lib/db.ts). Storing
-  live refresh tokens in a public demo DB isn't worth the exposure.
+  Out of scope for this demo.
 - **Idempotency, deprovisioning, list-resources.** All supported by the API;
-  omitted here for clarity.
+  omitted here for clarity. Re-submitting the form provisions a fresh project.
+- **Public embed link.** The inline session-replay player on the dashboard uses a
+  public sharing token, which is intentionally unauthenticated.
+
+This stays a teaching example — it runs against a demo database and isn't meant
+to be hardened for production.
 
 ## Reference
 
