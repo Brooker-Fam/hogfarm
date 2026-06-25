@@ -34,15 +34,16 @@ call, PostHog fetches the document, validates it, and auto-registers your OAuth
 app.
 
 In this repo that document is served from
-[`app/.well-known/posthog-client-v5.json/route.ts`](app/.well-known/posthog-client-v5.json/route.ts).
+[`app/.well-known/posthog-client-v6.json/route.ts`](app/.well-known/posthog-client-v6.json/route.ts).
 The one rule: `client_id` must exactly equal the URL it's served from.
 
 #### Why the filename is versioned
 
 PostHog locks a client's allowed scopes at first registration. To widen the
 scope ceiling you can't edit the existing document — you mint a new `client_id`,
-which means a new versioned filename (`-v5.json`). The earlier `-v#` documents
-are retired; v5 is the live one. See the note in [`lib/client-id.ts`](lib/client-id.ts).
+which means a new versioned filename (`-v6.json`). The earlier `-v#` documents
+are retired; v6 is the live one (it added `endpoint:read`/`endpoint:write` so the
+dashboard can publish and run Endpoints). See the note in [`lib/client-id.ts`](lib/client-id.ts).
 
 ### How the token exchange stays safe: PKCE
 
@@ -57,7 +58,7 @@ exchange. See [`lib/pkce.ts`](lib/pkce.ts).
 
 | File | What it does |
 | --- | --- |
-| [`app/.well-known/posthog-client-v5.json/route.ts`](app/.well-known/posthog-client-v5.json/route.ts) | Serves the CIMD document. This is your registration. |
+| [`app/.well-known/posthog-client-v6.json/route.ts`](app/.well-known/posthog-client-v6.json/route.ts) | Serves the CIMD document. This is your registration. |
 | [`lib/posthog-provisioning.ts`](lib/posthog-provisioning.ts) | Typed client for the three calls + deep links. Start here. |
 | [`app/api/provision/route.ts`](app/api/provision/route.ts) | Orchestrates the flow when a user clicks "Create my farm site". |
 | [`app/api/oauth/callback/route.ts`](app/api/oauth/callback/route.ts) | Completes the flow for users who already have a PostHog account. |
@@ -135,7 +136,7 @@ either:
 1. Push this repo to GitHub (already done if you're reading it there).
 2. In Vercel, **Add New → Project** and import the repo. No build config needed.
 3. Deploy. Your CIMD URL becomes
-   `https://<your-deployment>.vercel.app/.well-known/posthog-client-v5.json` — the
+   `https://<your-deployment>.vercel.app/.well-known/posthog-client-v6.json` — the
    app derives it from the request automatically, no env var required.
 4. Set `DATABASE_URL` and `HOGFARM_ENC_KEY` (required — see above).
 5. (Optional) Set `POSTHOG_VERIFICATION_TOKEN` to raise your rate limit.

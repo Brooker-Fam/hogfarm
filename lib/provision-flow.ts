@@ -1,5 +1,6 @@
 import { exchangeToken, createResource } from "@/lib/posthog-provisioning";
 import { enableSessionRecording } from "@/lib/posthog-replay";
+import { createDashboardEndpoints } from "@/lib/posthog-endpoints";
 import { createFarm } from "@/lib/db";
 import { encrypt } from "@/lib/crypto";
 import { uniqueSlug } from "@/lib/slug";
@@ -52,6 +53,12 @@ export async function finishProvisioning(params: {
   // (projects default to opt-in OFF). Best-effort — never block provisioning.
   await enableSessionRecording(tokens.accessToken, resource.teamId).catch((err) =>
     console.error("enableSessionRecording failed:", err),
+  );
+
+  // Publish the dashboard's reads as Endpoints. Best-effort — if it fails, the
+  // dashboard falls back to inline queries (see getDashboardData).
+  await createDashboardEndpoints(tokens.accessToken, resource.teamId).catch((err) =>
+    console.error("createDashboardEndpoints failed:", err),
   );
 
   // Seed a believable week of demo traffic. Don't fail provisioning if it errors.

@@ -6,13 +6,17 @@ import { createAccountRequest, ProvisioningError } from "@/lib/posthog-provision
 import { finishProvisioning, FarmInput } from "@/lib/provision-flow";
 import { dashboardToken } from "@/lib/dashboard-auth";
 
-// sharing_configuration:write lets HogFarm mint a public embed token for a farm's
-// latest session recording (rendered inline on the dashboard). session_recording:read
-// covers reading recording metadata. project:write turns on session recording for the
-// freshly provisioned project. These must stay within the CIMD scope ceiling (see
-// posthog-client-v5.json).
+// endpoint:write publishes the dashboard's saved queries as Endpoints at provision
+// time; endpoint:read runs them. sharing_configuration:write lets HogFarm mint a
+// public embed token for a farm's latest session recording (rendered inline on the
+// dashboard). session_recording:read covers reading recording metadata. project:write
+// turns on session recording for the freshly provisioned project. query:read is the
+// fallback for farms provisioned before Endpoints existed. These must stay within the
+// CIMD scope ceiling (see posthog-client-v6.json).
 const SCOPES = [
   "query:read",
+  "endpoint:read",
+  "endpoint:write",
   "insight:read",
   "project:read",
   "person:read",

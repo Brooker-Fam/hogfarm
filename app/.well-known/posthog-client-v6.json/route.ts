@@ -31,11 +31,15 @@ export function GET(request: NextRequest) {
       verification_token: process.env.POSTHOG_VERIFICATION_TOKEN || undefined,
       // Optional scope ceiling. Tokens issued to this client can never exceed
       // these, regardless of what an individual account request asks for.
-      // query:read runs HogQL for the dashboard; sharing_configuration:write mints
+      // endpoint:write publishes the dashboard's saved queries as Endpoints at
+      // provision time; endpoint:read runs them. sharing_configuration:write mints
       // the public embed token for inline session-replay playback; project:write
-      // turns on session recording for a freshly provisioned project.
+      // turns on session recording for a freshly provisioned project. query:read
+      // stays as the fallback path for farms provisioned before Endpoints existed.
       scopes: [
         "query:read",
+        "endpoint:read",
+        "endpoint:write",
         "insight:read",
         "project:read",
         "person:read",
