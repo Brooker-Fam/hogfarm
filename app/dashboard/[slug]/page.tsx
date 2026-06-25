@@ -4,6 +4,7 @@ import { getFarmBySlug } from "@/lib/db";
 import { getDashboardData, DashboardData } from "@/lib/posthog-analytics";
 import { getReplayEmbedUrl } from "@/lib/posthog-replay";
 import { verifyDashboardToken } from "@/lib/dashboard-auth";
+import { AutoRefresh } from "@/components/AutoRefresh";
 
 export const dynamic = "force-dynamic";
 
@@ -96,8 +97,10 @@ export default async function Dashboard({
         <div className="panel" style={{ marginTop: 28 }}>
           <h2 style={{ marginTop: 0 }}>Gathering your analytics…</h2>
           <p style={{ color: "var(--muted)" }}>
-            Your site just went live and visits are flowing into PostHog. Refresh in a moment to see them.
+            Your site just went live and visits are flowing into PostHog. This page fills in
+            automatically as they arrive — no need to refresh.
           </p>
+          <AutoRefresh seconds={8} />
         </div>
       ) : (
         <>
