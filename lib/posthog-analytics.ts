@@ -1,6 +1,5 @@
 import { Farm } from "@/lib/db";
 import { HOST, validAccessToken } from "@/lib/posthog-token";
-import { fetchDashboardViaEndpoints } from "@/lib/posthog-endpoints";
 
 export async function hogql<T = unknown[]>(token: string, teamId: string, query: string): Promise<T[]> {
   const res = await fetch(`${HOST}/api/projects/${teamId}/query/`, {
@@ -20,21 +19,18 @@ export interface DashboardData {
   topPaths: Array<{ path: string; count: number }>;
 }
 
-/**
- * Dashboard analytics. Newer farms (provisioned with `endpoint:write`) have saved,
- * materialized Endpoints in their project — we read those first. Farms provisioned
- * before that scope existed, or any endpoint miss, fall back to running the HogQL
- * inline against the project's query API.
- */
-export async function getDashboardData(farm: Farm): Promise<DashboardData> {
-  const viaEndpoints = await fetchDashboardViaEndpoints(farm).catch(() => null);
-  if (viaEndpoints) return viaEndpoints;
-  return getDashboardDataInline(farm);
-}
-
 const WINDOW_DAYS = 90;
 
-export async function getDashboardDataInline(farm: Farm): Promise<DashboardData> {
+/**
+ * Dashboard analytics, read live with the farm's OAuth token (a HogQL `query:read`
+ * call against the project's query API). We read inline rather than through the
+ * project's saved Endpoints on purpose: an Endpoint serves a cached/materialized
+ * result (fresh only within its data_freshness window), which on a just-provisioned
+ * project means the dashboard freezes on the initial empty read until the cache
+ * expires. Inline always reflects current data — the right trade-off for a dashboard
+ * that's viewed right after provisioning while events are still arriving.
+ */
+export async function getDashboardData(farm: Farm): Promise<DashboardData> {
   const token = await validAccessToken(farm);
   const tid = farm.posthogTeamId;
 

@@ -1,8 +1,14 @@
 /**
  * Seed a realistic week of traffic into a freshly provisioned project so the
  * dashboard has something to show immediately. These are demo pageviews sent
- * through PostHog's capture API with historical_migration so the backdated
- * timestamps are accepted. Real visits to the published farm site stack on top.
+ * through PostHog's capture API. Real visits to the published farm site stack on top.
+ *
+ * We deliberately do NOT set historical_migration. That flag routes the whole batch
+ * to PostHog's historical ingestion topic, which is intentionally throttled and can
+ * take many minutes to become queryable — so the dashboard sits empty right after
+ * provisioning, which is the opposite of what we want. The real-time pipeline accepts
+ * these backdated timestamps fine (it stores the event timestamp, not arrival time)
+ * and makes them queryable in seconds.
  */
 
 const CAPTURE: Record<string, string> = {
@@ -51,7 +57,7 @@ export async function seedTraffic(apiKey: string, region: string, siteUrl: strin
   const res = await fetch(`${host}/batch/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ api_key: apiKey, historical_migration: true, batch }),
+    body: JSON.stringify({ api_key: apiKey, batch }),
   });
   if (!res.ok) throw new Error(`seed failed ${res.status}: ${(await res.text()).slice(0, 120)}`);
   return batch.length;

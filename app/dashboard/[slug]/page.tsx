@@ -78,7 +78,7 @@ export default async function Dashboard({ params }: { params: Promise<{ slug: st
         </div>
       </div>
 
-      {error || !data ? (
+      {error || !data || data.totalPageviews === 0 ? (
         <div className="panel" style={{ marginTop: 28 }}>
           <h2 style={{ marginTop: 0 }}>Gathering your analytics…</h2>
           <p style={{ color: "var(--muted)" }}>
@@ -121,9 +121,10 @@ export default async function Dashboard({ params }: { params: Promise<{ slug: st
           </div>
 
           <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 20 }}>
-            HogFarm reads this with the OAuth token from when your account was provisioned, calling saved{" "}
+            HogFarm reads this live with the OAuth token from when your account was provisioned — a HogQL{" "}
+            <code>query:read</code> call against your own PostHog project. The same queries are also published as{" "}
             <a href={`${host}/project/${farm.posthogTeamId}/endpoints`} target="_blank" rel="noreferrer">Endpoints</a>{" "}
-            published in your own PostHog project. The same data lives in full at{" "}
+            you can build on. See it all in full at{" "}
             <a href={`${host}/project/${farm.posthogTeamId}`} target="_blank" rel="noreferrer">PostHog</a>.
           </p>
         </>
