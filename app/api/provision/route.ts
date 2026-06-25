@@ -4,6 +4,7 @@ import { clientId, shortLivedCookieOpts, origin } from "@/lib/client-id";
 import { createPkce } from "@/lib/pkce";
 import { createAccountRequest, ProvisioningError } from "@/lib/posthog-provisioning";
 import { finishProvisioning, FarmInput } from "@/lib/provision-flow";
+import { dashboardToken } from "@/lib/dashboard-auth";
 
 // sharing_configuration:write lets HogFarm mint a public embed token for a farm's
 // latest session recording (rendered inline on the dashboard). session_recording:read
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest) {
       region: "US",
       origin: origin(request),
     });
-    return NextResponse.json({ status: "complete", slug });
+    return NextResponse.json({ status: "complete", slug, token: dashboardToken(slug) });
   } catch (err) {
     if (err instanceof ProvisioningError) {
       return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });

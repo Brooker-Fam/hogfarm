@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getFarmBySlug } from "@/lib/db";
 import { getDashboardData, DashboardData } from "@/lib/posthog-analytics";
 import { getReplayEmbedUrl } from "@/lib/posthog-replay";
+import { verifyDashboardToken } from "@/lib/dashboard-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -47,12 +48,17 @@ export default async function Dashboard({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ debug?: string }>;
+  searchParams: Promise<{ debug?: string; k?: string }>;
 }) {
-  const farm = await getFarmBySlug((await params).slug);
+  const slug = (await params).slug;
+  const farm = await getFarmBySlug(slug);
   if (!farm) notFound();
 
-  const debug = (await searchParams).debug === "1";
+  const sp = await searchParams;
+  // notFound() (not 403) so the response doesn't confirm whether a slug exists.
+  if (!verifyDashboardToken(slug, sp.k)) notFound();
+
+  const debug = sp.debug === "1";
 
   let data: DashboardData | null = null;
   let error = false;
@@ -90,7 +96,7 @@ export default async function Dashboard({
         <div className="panel" style={{ marginTop: 28 }}>
           <h2 style={{ marginTop: 0 }}>Gathering your analytics…</h2>
           <p style={{ color: "var(--muted)" }}>
-            Your site just went live and visits are flowing into PostHog. Refresh in a few seconds to see them.
+            Your site just went live and visits are flowing into PostHog. Refresh in a moment to see them.
           </p>
         </div>
       ) : (

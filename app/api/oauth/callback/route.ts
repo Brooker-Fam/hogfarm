@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { finishProvisioning, FarmInput } from "@/lib/provision-flow";
 import { origin } from "@/lib/client-id";
 import { ProvisioningError } from "@/lib/posthog-provisioning";
+import { dashboardToken } from "@/lib/dashboard-auth";
 
 /**
  * Redirect target for the existing-user consent flow. PostHog returns an
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
       region: "US",
       origin: origin(request),
     });
-    const res = NextResponse.redirect(new URL(`/dashboard/${slug}`, request.url));
+    const res = NextResponse.redirect(new URL(`/dashboard/${slug}?k=${dashboardToken(slug)}`, request.url));
     clearCookies(res);
     return res;
   } catch (err) {

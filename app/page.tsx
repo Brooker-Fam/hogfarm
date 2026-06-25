@@ -37,7 +37,7 @@ function Builder() {
           return;
         }
         if (data.status === "complete" && data.slug) {
-          router.push(`/dashboard/${data.slug}`);
+          router.push(`/dashboard/${data.slug}?k=${data.token}`);
           return;
         }
         setError(data.error ?? "Something went wrong");
