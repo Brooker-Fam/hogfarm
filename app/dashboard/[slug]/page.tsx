@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getFarmBySlug } from "@/lib/db";
 import { getDashboardData, DashboardData } from "@/lib/posthog-analytics";
+import { getReplayEmbedUrl } from "@/lib/posthog-replay";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +54,8 @@ export default async function Dashboard({ params }: { params: Promise<{ slug: st
     error = true;
   }
 
+  const replayEmbedUrl = await getReplayEmbedUrl(farm);
+
   const host = HOST_FOR[farm.region] ?? HOST_FOR.US;
   const sevenDayTotal = data?.trend.reduce((s, t) => s + t.count, 0) ?? 0;
   const busiest = data?.trend.reduce((m, t) => (t.count > m.count ? t : m), { date: "—", count: 0 });
@@ -85,19 +88,21 @@ export default async function Dashboard({ params }: { params: Promise<{ slug: st
       ) : (
         <>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16, marginTop: 28 }}>
-            <Kpi label="Pageviews (all time)" value={data.totalPageviews.toLocaleString()} />
+            <Kpi label="Pageviews (90 days)" value={data.totalPageviews.toLocaleString()} />
             <Kpi label="Unique visitors" value={data.uniqueVisitors.toLocaleString()} />
             <Kpi label="Last 7 days" value={sevenDayTotal.toLocaleString()} />
             <Kpi label="Busiest day" value={busiest && busiest.count > 0 ? busiest.date.slice(5) : "—"} sub={busiest?.count ? `${busiest.count} views` : ""} />
           </div>
 
           <div className="panel" style={{ marginTop: 20 }}>
-            <h2 style={{ marginTop: 0, fontSize: 18 }}>Pageviews, last 7 days</h2>
+            <h2 style={{ marginTop: 0, fontSize: 18 }}>📈 Pageviews, last 7 days</h2>
             <TrendChart data={data} />
           </div>
 
+          <ReplayPanel host={host} teamId={farm.posthogTeamId} embedUrl={replayEmbedUrl} />
+
           <div className="panel" style={{ marginTop: 20 }}>
-            <h2 style={{ marginTop: 0, fontSize: 18 }}>Top pages</h2>
+            <h2 style={{ marginTop: 0, fontSize: 18 }}>🚜 Top pages</h2>
             {data.topPaths.length === 0 ? (
               <p style={{ color: "var(--muted)" }}>No pageviews yet.</p>
             ) : (
@@ -116,13 +121,50 @@ export default async function Dashboard({ params }: { params: Promise<{ slug: st
           </div>
 
           <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 20 }}>
-            HogFarm reads this with the OAuth token from provisioning your account — a HogQL <code>query:read</code> call
-            against your own PostHog project. The same data lives in full at{" "}
+            HogFarm reads this with the OAuth token from when your account was provisioned, calling saved{" "}
+            <a href={`${host}/project/${farm.posthogTeamId}/endpoints`} target="_blank" rel="noreferrer">Endpoints</a>{" "}
+            published in your own PostHog project. The same data lives in full at{" "}
             <a href={`${host}/project/${farm.posthogTeamId}`} target="_blank" rel="noreferrer">PostHog</a>.
           </p>
         </>
       )}
     </main>
+  );
+}
+
+// Session replays are captured on the farm site (see PostHogScript). When the
+// farm's most recent recording has an embed token (sharing_configuration:write),
+// we play it inline. Otherwise — no recordings yet, or an older farm whose token
+// predates the scope — we fall back to a deep link into the project.
+function ReplayPanel({ host, teamId, embedUrl }: { host: string; teamId: string; embedUrl: string | null }) {
+  return (
+    <div className="panel" style={{ marginTop: 20 }}>
+      <h2 style={{ marginTop: 0, fontSize: 18 }}>🎬 Session replays</h2>
+      <p style={{ color: "var(--muted)", marginTop: 0 }}>
+        Watch real visitors move through your farm site — every click and scroll, recorded automatically.
+      </p>
+      {embedUrl ? (
+        <>
+          <iframe
+            src={embedUrl}
+            title="Latest session replay"
+            allowFullScreen
+            style={{ width: "100%", height: 480, border: "2px solid var(--border)", borderRadius: 16, background: "var(--bg)" }}
+          />
+          <a className="player-cta" href={`${host}/project/${teamId}/replay`} target="_blank" rel="noreferrer"
+             style={{ display: "inline-block", marginTop: 12 }}>
+            See all replays in PostHog ↗
+          </a>
+        </>
+      ) : (
+        <a className="player" href={`${host}/project/${teamId}/replay`} target="_blank" rel="noreferrer">
+          <div className="player-screen">
+            <div className="play" aria-hidden>▶</div>
+          </div>
+          <span className="player-cta">No replays yet — open replays in PostHog ↗</span>
+        </a>
+      )}
+    </div>
   );
 }
 

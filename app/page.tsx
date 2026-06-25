@@ -38,14 +38,37 @@ function Builder() {
   }
 
   return (
-    <main>
-      <div className="hero">
-        <span className="tag">🌾 HogFarm</span>
-        <h1>Beautiful websites for your farm. Analytics built in.</h1>
-        <p>Launch a farm site in seconds and watch the visitors roll in — no signup, no setup, no analytics to wire up.</p>
-      </div>
+    <main className="landing">
+      <section className="hero">
+        <div className="sun" aria-hidden />
+        <div className="cloud cloud-a" aria-hidden>☁️</div>
+        <div className="cloud cloud-b" aria-hidden>☁️</div>
+        <div className="cloud cloud-c" aria-hidden>☁️</div>
 
-      <form className="panel" onSubmit={create}>
+        <div className="hero-inner">
+          <span className="tag">🌾 HogFarm</span>
+          <h1>Put your farm online.<br />See who comes by.</h1>
+          <p>Add your farm name and what you grow. You get a real website and a dashboard that shows how many people visited — analytics handled, nothing to install.</p>
+          <div className="critters" aria-hidden>
+            <span>🐔</span><span>🐄</span><span>🐷</span><span>🐑</span><span>🚜</span><span>🌻</span>
+          </div>
+        </div>
+
+        <svg className="hills" viewBox="0 0 1440 150" preserveAspectRatio="none" aria-hidden>
+          <path d="M0 90 Q 240 40 480 78 T 960 70 T 1440 84 V150 H0 Z" fill="#bfe3a8" />
+          <path d="M0 116 Q 280 70 560 104 T 1120 100 T 1440 110 V150 H0 Z" fill="#7cc25a" />
+        </svg>
+      </section>
+
+      <div className="wrap">
+      <form className="panel sign" onSubmit={create}>
+        <div className="sign-top">
+          <span className="sign-emoji" aria-hidden>🌱</span>
+          <div>
+            <h2 className="sign-title">Plant your farm</h2>
+            <p className="sign-sub">Fill this in and we&apos;ll raise your site.</p>
+          </div>
+        </div>
         <div className="grid2">
           <div>
             <label htmlFor="name">Farm name *</label>
@@ -70,34 +93,35 @@ function Builder() {
         <input id="products" value={form.products} onChange={set("products")} placeholder="Heirloom tomatoes, Raw honey, Free-range eggs" />
 
         <button type="submit" disabled={loading}>
-          {loading ? "Building your farm site…" : "Launch my farm site"}
+          {loading ? "🌱 Growing your farm site…" : "🚜 Launch my farm site"}
         </button>
         {error && <div className="error">{error}</div>}
       </form>
 
       <div className="features">
         <div className="feature">
-          <div className="fi">🌱</div>
-          <h3>A real site, instantly</h3>
-          <p>Your farm gets a published, shareable website — hero, shop, hours, the works.</p>
+          <div className="fi">🪧</div>
+          <h3>A site you can share today</h3>
+          <p>Your farm gets a published page with a shop list, hours, and how to visit.</p>
         </div>
         <div className="feature">
           <div className="fi">📊</div>
-          <h3>Analytics that just work</h3>
-          <p>Every visit is tracked automatically. See it all in your HogFarm dashboard.</p>
+          <h3>Visits show up on their own</h3>
+          <p>Every page view — and every session recording — lands in your dashboard. Nothing to install.</p>
         </div>
         <div className="feature">
-          <div className="fi">🔌</div>
-          <h3>Powered by PostHog</h3>
-          <p>Behind the scenes, HogFarm provisions a PostHog project and pulls the data back for you.</p>
+          <div className="fi">🦔</div>
+          <h3>Runs on PostHog</h3>
+          <p>HogFarm sets up a PostHog project for your site and reads the numbers back for you.</p>
         </div>
       </div>
 
       <p className="steps">
-        A demo of the{" "}
+        This is a demo of the{" "}
         <a href="https://posthog.com/docs/integrate/provisioning" target="_blank" rel="noreferrer">PostHog provisioning API</a>.
-        Creating a farm provisions a real PostHog account, embeds tracking on your site, and reads the analytics back in.
+        Making a farm creates a real PostHog account, adds tracking to your site, and reads the analytics back in.
       </p>
+      </div>
     </main>
   );
 }

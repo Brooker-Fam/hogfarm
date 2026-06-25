@@ -5,7 +5,20 @@ import { createPkce } from "@/lib/pkce";
 import { createAccountRequest, ProvisioningError } from "@/lib/posthog-provisioning";
 import { finishProvisioning, FarmInput } from "@/lib/provision-flow";
 
-const SCOPES = ["query:read", "insight:read", "project:read", "person:read"];
+// sharing_configuration:write lets HogFarm mint a public embed token for a farm's
+// latest session recording (rendered inline on the dashboard). session_recording:read
+// covers reading recording metadata. endpoint:write lets us publish the dashboard
+// queries as saved Endpoints in the new project at provision time. These must stay
+// within the v4 CIMD scope ceiling (see posthog-client-v4.json).
+const SCOPES = [
+  "query:read",
+  "insight:read",
+  "project:read",
+  "person:read",
+  "session_recording:read",
+  "sharing_configuration:write",
+  "endpoint:write",
+];
 
 function normalizeInput(raw: Record<string, unknown>): FarmInput {
   const name = String(raw.name ?? "").trim();

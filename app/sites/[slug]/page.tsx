@@ -6,7 +6,7 @@ import { PostHogScript } from "@/components/PostHogScript";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const farm = await getFarmBySlug((await params).slug);
-  return farm ? { title: `${farm.name} — fresh, local, seasonal`, description: farm.tagline } : { title: "Farm" };
+  return farm ? { title: farm.name, description: farm.tagline } : { title: "Farm" };
 }
 
 const PRODUCE_EMOJI: Record<string, string> = {
@@ -42,10 +42,12 @@ export default async function FarmSite({ params }: { params: Promise<{ slug: str
         </nav>
       </header>
 
-      <section style={{ background: `linear-gradient(135deg, ${t.heroFrom}, ${t.heroTo})`, padding: "84px 28px" }}>
-        <div style={{ maxWidth: 1040, margin: "0 auto" }}>
+      <section style={{ position: "relative", overflow: "hidden", background: `linear-gradient(135deg, ${t.heroFrom}, ${t.heroTo})`, padding: "84px 28px" }}>
+        <span aria-hidden style={{ position: "absolute", top: 36, right: "10%", fontSize: 52, opacity: 0.9, animation: "drift 24s ease-in-out infinite" }}>☁️</span>
+        <span aria-hidden style={{ position: "absolute", top: 96, right: "32%", fontSize: 34, opacity: 0.8, animation: "drift 30s ease-in-out infinite reverse" }}>☁️</span>
+        <div style={{ position: "relative", maxWidth: 1040, margin: "0 auto" }}>
           <div style={{ fontSize: 64, marginBottom: 12 }}>{t.emoji}</div>
-          <h1 style={{ fontSize: 52, margin: "0 0 14px", letterSpacing: "-0.02em", maxWidth: 720 }}>{farm.name}</h1>
+          <h1 style={{ fontFamily: "var(--display)", fontSize: 52, margin: "0 0 14px", letterSpacing: "-0.02em", maxWidth: 720 }}>{farm.name}</h1>
           <p style={{ fontSize: 22, color: t.text, opacity: 0.8, margin: "0 0 28px", maxWidth: 600 }}>{farm.tagline}</p>
           <a href="#shop" style={{ background: t.primary, color: "#fff", padding: "14px 26px", borderRadius: 10, textDecoration: "none", fontWeight: 600, fontSize: 16 }}>
             See what&apos;s in season →
@@ -98,7 +100,7 @@ export default async function FarmSite({ params }: { params: Promise<{ slug: str
       </section>
 
       <footer style={{ maxWidth: 1040, margin: "0 auto", padding: "32px 28px", color: t.muted, fontSize: 13, display: "flex", justifyContent: "space-between" }}>
-        <span>© {farm.name}. Grown with care.</span>
+        <span>© {farm.name}</span>
         <span>Built with 🌾 HogFarm</span>
       </footer>
     </div>
