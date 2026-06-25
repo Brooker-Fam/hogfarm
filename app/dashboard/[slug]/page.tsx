@@ -42,9 +42,17 @@ function TrendChart({ data }: { data: DashboardData }) {
   );
 }
 
-export default async function Dashboard({ params }: { params: Promise<{ slug: string }> }) {
+export default async function Dashboard({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ debug?: string }>;
+}) {
   const farm = await getFarmBySlug((await params).slug);
   if (!farm) notFound();
+
+  const debug = (await searchParams).debug === "1";
 
   let data: DashboardData | null = null;
   let error = false;
@@ -54,7 +62,7 @@ export default async function Dashboard({ params }: { params: Promise<{ slug: st
     error = true;
   }
 
-  const replayEmbedUrl = await getReplayEmbedUrl(farm);
+  const replay = await getReplayEmbedUrl(farm);
 
   const host = HOST_FOR[farm.region] ?? HOST_FOR.US;
   const sevenDayTotal = data?.trend.reduce((s, t) => s + t.count, 0) ?? 0;
@@ -99,7 +107,7 @@ export default async function Dashboard({ params }: { params: Promise<{ slug: st
             <TrendChart data={data} />
           </div>
 
-          <ReplayPanel host={host} teamId={farm.posthogTeamId} embedUrl={replayEmbedUrl} />
+          <ReplayPanel host={host} teamId={farm.posthogTeamId} embedUrl={replay.url} debugReason={debug ? replay.reason : null} />
 
           <div className="panel" style={{ marginTop: 20 }}>
             <h2 style={{ marginTop: 0, fontSize: 18 }}>🚜 Top pages</h2>
@@ -137,7 +145,17 @@ export default async function Dashboard({ params }: { params: Promise<{ slug: st
 // farm's most recent recording has an embed token (sharing_configuration:write),
 // we play it inline. Otherwise — no recordings yet, or an older farm whose token
 // predates the scope — we fall back to a deep link into the project.
-function ReplayPanel({ host, teamId, embedUrl }: { host: string; teamId: string; embedUrl: string | null }) {
+function ReplayPanel({
+  host,
+  teamId,
+  embedUrl,
+  debugReason,
+}: {
+  host: string;
+  teamId: string;
+  embedUrl: string | null;
+  debugReason: string | null;
+}) {
   return (
     <div className="panel" style={{ marginTop: 20 }}>
       <h2 style={{ marginTop: 0, fontSize: 18 }}>🎬 Session replays</h2>
@@ -158,12 +176,19 @@ function ReplayPanel({ host, teamId, embedUrl }: { host: string; teamId: string;
           </a>
         </>
       ) : (
-        <a className="player" href={`${host}/project/${teamId}/replay`} target="_blank" rel="noreferrer">
-          <div className="player-screen">
-            <div className="play" aria-hidden>▶</div>
-          </div>
-          <span className="player-cta">No replays yet — open replays in PostHog ↗</span>
-        </a>
+        <>
+          <a className="player" href={`${host}/project/${teamId}/replay`} target="_blank" rel="noreferrer">
+            <div className="player-screen">
+              <div className="play" aria-hidden>▶</div>
+            </div>
+            <span className="player-cta">No replays yet — open replays in PostHog ↗</span>
+          </a>
+          {debugReason ? (
+            <pre style={{ marginTop: 12, fontSize: 12, color: "var(--muted)", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
+              debug: {debugReason}
+            </pre>
+          ) : null}
+        </>
       )}
     </div>
   );

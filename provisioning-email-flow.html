@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HogFarm provisioning email flow</title>
+<style>
+  /* Dark is the default theme; light is opt-in via :root[data-theme="light"].
+     Both are driven entirely by these variables, so the runtime toggle only
+     has to flip one attribute on <html>. Tinted surfaces (pills, notes, table
+     rows) use color-mix so they read against the card in either theme. */
+  :root { --ink:#e6edf3; --muted:#9aa7b4; --line:#2d3742; --bg:#0f1419;
+    --card:#1a212b; --card-head:#232c38; --blue:#5b9bf0;
+    --accent:#4fb3c9; --green:#3fb88f; --amber:#e0a82e; --rust:#e0703a;
+    --code-bg:#0b1120; --code-ink:#e2e8f0; --shadow:rgba(0,0,0,.30); }
+  :root[data-theme="light"] { --ink:#1f2933; --muted:#5b6770; --line:#e3e8ee; --bg:#f7f9fb;
+    --card:#fff; --card-head:#eef2f6; --blue:#2563eb;
+    --accent:#2E8DA1; --green:#2F9C7F; --amber:#C5890A; --rust:#C5500A;
+    --code-bg:#0f172a; --code-ink:#e2e8f0; --shadow:rgba(0,0,0,.04); }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  .theme-toggle { position:fixed; top:14px; right:14px; z-index:50; cursor:pointer;
+    background:var(--card); color:var(--ink); border:1px solid var(--line); border-radius:999px;
+    padding:7px 13px; font:600 13px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    box-shadow:0 1px 3px var(--shadow); display:flex; align-items:center; gap:6px; }
+  .theme-toggle:hover { border-color:var(--accent); }
+  @media print { .theme-toggle { display:none; } }
+  .wrap { max-width:960px; margin:0 auto; padding:40px 24px 80px; }
+  header { border-bottom:3px solid var(--accent); padding-bottom:18px; margin-bottom:8px; }
+  h1 { font-size:28px; margin:0 0 6px; letter-spacing:-.01em; }
+  h2 { font-size:21px; margin:42px 0 12px; padding-top:10px; border-top:1px solid var(--line); }
+  h3 { font-size:16px; margin:26px 0 8px; color:var(--accent); }
+  .sub { color:var(--muted); font-size:15px; }
+  .pill { display:inline-block; font-size:12px; font-weight:600; padding:2px 9px; border-radius:999px;
+    background:color-mix(in srgb, var(--green) 16%, transparent); color:var(--green); margin-right:6px; }
+  .pill.blue { background:color-mix(in srgb, var(--blue) 16%, transparent); color:var(--blue); }
+  a { color:var(--accent); }
+  code { background:color-mix(in srgb, var(--ink) 9%, transparent); padding:1px 6px; border-radius:5px; font-size:13.5px;
+    font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; }
+  pre { background:var(--code-bg); color:var(--code-ink); padding:16px 18px; border-radius:10px;
+    overflow-x:auto; font-size:13px; line-height:1.55; }
+  pre code { background:none; color:inherit; padding:0; }
+  .fig { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px;
+    margin:18px 0; text-align:center; box-shadow:0 1px 2px var(--shadow); }
+  /* Never upscale figures: render at natural size, only shrink to fit. */
+  .fig svg { width:auto; max-width:100%; height:auto; }
+  /* Chart internals are tagged with classes so axis/grid/label colors follow
+     the theme; series colors (bars, lines) stay fixed and read on both. */
+  .fig svg .g-line { stroke:var(--line); }
+  .fig svg .g-txt { fill:var(--muted); }
+  .fig svg .v-txt { fill:var(--ink); }
+  .figcap { font-size:13px; color:var(--muted); margin-top:10px; text-align:left; }
+  table { border-collapse:collapse; width:100%; font-size:14px; margin:14px 0; }
+  th,td { border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top; }
+  th { background:var(--card-head); font-weight:600; }
+  td.num,th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  tr.mark > td { background:color-mix(in srgb, var(--amber) 13%, transparent); }
+  tr.done > td { background:color-mix(in srgb, var(--green) 13%, transparent); }
+  td.step { text-align:center; font-weight:700; color:var(--muted); font-variant-numeric:tabular-nums; width:34px; }
+  .note { border-left:4px solid var(--accent); background:var(--card); padding:12px 16px;
+    border-radius:0 8px 8px 0; margin:16px 0; font-size:14.5px; }
+  .note.warn { border-color:var(--amber); background:color-mix(in srgb, var(--amber) 9%, var(--card)); }
+  .step { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:4px 18px 14px; margin:14px 0; }
+  ol.steps > li { margin:8px 0; }
+  details { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:6px 16px; margin:12px 0; }
+  details > summary { cursor:pointer; font-weight:600; padding:6px 0; }
+  details[open] > summary { border-bottom:1px solid var(--line); margin-bottom:10px; }
+  .mock { border:1px solid var(--line); border-radius:10px; background:var(--card); padding:14px;
+    box-shadow:0 1px 2px var(--shadow); font-size:14px; margin:16px 0; }
+  .mock .bar { display:flex; align-items:center; gap:6px; margin:-14px -14px 12px;
+    padding:9px 12px; background:var(--card-head); border-bottom:1px solid var(--line); border-radius:10px 10px 0 0; }
+  .mock .bar i { width:10px; height:10px; border-radius:50%; background:var(--muted); display:inline-block; }
+  .mock .bar span { margin-left:6px; font-size:12px; color:var(--muted); }
+  .kpigrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(155px,1fr)); gap:14px; margin:18px 0; }
+  .kpi { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:15px 17px;
+    box-shadow:0 1px 2px var(--shadow); }
+  .kpi .l { font-size:12px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .kpi .n { font-size:29px; font-weight:700; letter-spacing:-.02em; margin:7px 0 2px; font-variant-numeric:tabular-nums; }
+  .kpi .d { font-size:13px; font-weight:600; }
+  .kpi .d.up { color:var(--green); }
+  .kpi .d.down { color:var(--rust); }
+  .kpi .d.flat { color:var(--muted); }
+  .legend { display:flex; flex-wrap:wrap; gap:14px; justify-content:center; margin-top:10px; font-size:12px; color:var(--muted); }
+  .legend i { display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:5px; vertical-align:-1px; }
+  .shots { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:18px; margin:18px 0; }
+  .shot { border:1px solid var(--line); border-radius:12px; background:var(--card); overflow:hidden;
+    box-shadow:0 1px 2px var(--shadow); }
+  .shot img { width:100%; display:block; border-bottom:1px solid var(--line);
+    background:var(--card-head); cursor:zoom-in; }
+  .shot .cap { padding:12px 14px; font-size:13.5px; color:var(--ink); line-height:1.5; }
+  .shot .cap b { display:block; font-size:11px; color:var(--muted); text-transform:uppercase;
+    letter-spacing:.04em; margin-bottom:4px; }
+  .tag { display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px;
+    letter-spacing:.03em; }
+  .tag.pass { background:color-mix(in srgb, var(--green) 16%, transparent); color:var(--green); }
+  .tag.fail { background:color-mix(in srgb, var(--rust) 16%, transparent); color:var(--rust); }
+  .tag.mark { background:color-mix(in srgb, var(--amber) 16%, transparent); color:var(--amber); }
+  /* Step strip: a short linear sequence a -> b -> c without burning a screen of
+     height on a vertical flowchart. Arrows are drawn between steps; it wraps. */
+  .flow { display:flex; flex-wrap:wrap; gap:11px 26px; margin:18px 0; }
+  .flow .fstep { position:relative; background:var(--card); border:1px solid var(--line);
+    border-radius:9px; padding:9px 13px; font-size:13.5px; }
+  .flow .fstep:not(:first-child)::before { content:"\2192"; position:absolute; left:-20px;
+    top:50%; transform:translateY(-50%); color:var(--muted); font-size:14px; }
+  .flow .fstep .when { display:block; font-size:11px; color:var(--muted); margin-top:2px; }
+  .flow .fstep.mark { background:color-mix(in srgb, var(--amber) 11%, var(--card)); border-color:var(--amber); }
+  .flow .fstep.done { background:color-mix(in srgb, var(--green) 11%, var(--card)); border-color:var(--green); }
+  footer { margin-top:50px; padding-top:16px; border-top:1px solid var(--line); color:var(--muted); font-size:13px; }
+  /* Screenshot lightbox: click a .shot to open a full-screen left/right gallery
+     with the caption text kept visible beside the image. JS wires it up. */
+  .lb { position:fixed; inset:0; z-index:9999; background:rgba(15,23,42,.94); display:none; }
+  .lb.open { display:flex; flex-direction:column; }
+  .lb-bar { display:flex; align-items:center; gap:12px; padding:10px 16px; color:#e2e8f0;
+    flex:0 0 auto; font-size:13px; }
+  .lb-bar .ct { font-variant-numeric:tabular-nums; font-weight:700; }
+  .lb-bar .sp { flex:1; }
+  .lb-bar button { background:rgba(255,255,255,.12); color:#e2e8f0; border:0; border-radius:7px;
+    padding:7px 12px; cursor:pointer; font-size:13px; font-weight:600; }
+  .lb-bar button:hover { background:rgba(255,255,255,.24); }
+  .lb-body { flex:1; display:flex; min-height:0; }
+  .lb-stage { flex:1; position:relative; display:flex; align-items:center; justify-content:center;
+    min-width:0; padding:10px 10px 18px; }
+  .lb-stage img { max-width:100%; max-height:100%; object-fit:contain; border-radius:8px;
+    box-shadow:0 12px 44px rgba(0,0,0,.5); }
+  .lb-cap { flex:0 0 330px; background:#0f172a; color:#cbd5e1; padding:24px 22px 32px;
+    overflow:auto; font-size:14px; line-height:1.6; border-left:1px solid rgba(255,255,255,.08); }
+  .lb-cap b { display:block; font-size:11px; color:#94a3b8; text-transform:uppercase;
+    letter-spacing:.05em; margin-bottom:8px; }
+  .lb-arrow { position:absolute; top:50%; transform:translateY(-50%); width:46px; height:46px;
+    border-radius:50%; border:0; background:rgba(255,255,255,.15); color:#fff; font-size:26px;
+    line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .lb-arrow:hover { background:rgba(255,255,255,.3); }
+  .lb-arrow.prev { left:16px; } .lb-arrow.next { right:16px; }
+  .lb-arrow[disabled] { opacity:.22; cursor:default; }
+  @media (max-width:720px){ .lb-body { flex-direction:column; }
+    .lb-cap { flex:0 0 auto; max-height:40vh; border-left:0; border-top:1px solid rgba(255,255,255,.08); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<style>
+  :root  { --frame: 0 0 0 1px var(--line), 0 1px 3px var(--shadow); }
+  .kpi   { border: none; border-radius: 8px; box-shadow: var(--frame); }
+  table  { border-radius: 8px; overflow: hidden; box-shadow: var(--frame); }
+  thead th { background:var(--card-head); color:var(--muted); font-size:12px; font-weight:600;
+             text-transform:uppercase; letter-spacing:.04em; border-bottom:1px solid var(--line); }
+  th, td   { padding:9px 14px; vertical-align:top; }
+  .tag, .sz { display:inline-block; padding:1px 8px; border-radius:10px; font-size:11px; font-weight:700; white-space:nowrap; }
+  .tag.pass { background:color-mix(in srgb, var(--green) 16%, transparent); color:var(--green); }
+  .tag.fail { background:color-mix(in srgb, var(--rust) 18%, transparent); color:var(--rust); }
+  .tag.mark { background:color-mix(in srgb, var(--amber) 16%, transparent); color:var(--amber); }
+  .email { box-shadow: var(--frame); border-radius:10px; padding:0; overflow:hidden; }
+  .email .ehead { background:var(--card-head); padding:12px 16px; border-bottom:1px solid var(--line); }
+  .email .ehead .subj { font-weight:700; font-size:15px; }
+  .email .ehead .meta { color:var(--muted); font-size:12px; margin-top:3px; }
+  .email .ebody { padding:14px 16px; font-size:14px; line-height:1.5; }
+  .email .cta { display:inline-block; margin:10px 0; padding:8px 16px; border-radius:6px;
+                background:var(--accent); color:#fff; font-weight:700; font-size:13px; }
+  .twocol { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  @media (max-width:760px){ .twocol{ grid-template-columns:1fr; } }
+  .liquid { font-family:ui-monospace,monospace; background:var(--code-bg); color:var(--code-ink); padding:0 4px; border-radius:3px; font-size:12px; }
+</style>
+
+<header>
+  <h1>HogFarm provisioning: the email flow, decoded</h1>
+  <div class="sub">Why you saw a "claim your account" email and a "wizard" email — what each one is, where it comes from, and which one shouldn't have fired.</div>
+  <span class="pill blue">Source: live Customer.io (EU, acct 80164, env "PostHog" 127208)</span>
+  <span class="pill">PostHog backend traced from ~/dev/posthog</span>
+  <span class="pill">2026-06-25</span>
+</header>
+
+<h2>TL;DR</h2>
+<div class="kpigrid">
+  <div class="kpi"><div class="l">Emails provisioning can send</div><div class="n">2</div>
+    <div class="d flat">▬ one per path (new vs existing)</div></div>
+  <div class="kpi"><div class="l">"Set your password" email</div><div class="n">Exists</div>
+    <div class="d up">▲ it IS the "claim" email</div></div>
+  <div class="kpi"><div class="l">Wizard email</div><div class="n">Bug</div>
+    <div class="d down">▼ fires by mistake</div></div>
+</div>
+
+<div class="note">
+<b>The short version.</b> HogFarm itself sends <b>zero</b> emails — it just calls PostHog's provisioning API, and <b>PostHog</b> (via Customer.io) sends everything.
+<ol>
+<li><b>"Claim your account" email</b> — this <b>is</b> your set-password email. There is no separate one. The subject literally says <i>"Welcome to PostHog – Set your password,"</i> and the <b>Claim your account</b> button links to the password-reset page. Clicking it is how you set a password and log in. Nothing is missing — the wording just split "claim" (button) from "password" (subject), so it wasn't obvious.</li>
+<li><b>Wizard email</b> — you're right, this should <b>not</b> fire for a provisioned account. It's the first email of PostHog's 41-email self-serve onboarding drip ("Onboarding 9.0"). Provisioning trips it accidentally because the drip's only exclusion is "self-hosted users" — it never excludes partner-provisioned users.</li>
+</ol>
+</div>
+
+<h2>How provisioning decides what to send</h2>
+<div class="fig"><svg width="868" height="861" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" data-d2-version="0.7.1" preserveAspectRatio="xMinYMin meet" viewBox="0 0 868 861"><svg class="d2-2058553999 d2-svg" width="868" height="861" viewBox="-21 -21 868 861"><rect x="-21.000000" y="-21.000000" width="868.000000" height="861.000000" rx="0.000000" fill="#FFFFFF" class=" fill-N7" stroke-width="0" /><style type="text/css"><![CDATA[
+.d2-2058553999 .text-bold {
+	font-family: "d2-2058553999-font-bold";
+}
+@font-face {
+	font-family: d2-2058553999-font-bold;
+	src: url("data:application/font-woff;base64,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");
+}
+.d2-2058553999 .text-italic {
+	font-family: "d2-2058553999-font-italic";
+}
+@font-face {
+	font-family: d2-2058553999-font-italic;
+	src: url("data:application/font-woff;base64,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");
+}]]></style><style type="text/css"><![CDATA[.shape {
+  shape-rendering: geometricPrecision;
+  stroke-linejoin: round;
+}
+.connection {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.blend {
+  mix-blend-mode: multiply;
+  opacity: 0.5;
+}
+
+		.d2-2058553999 .fill-N1{fill:#0A0F25;}
+		.d2-2058553999 .fill-N2{fill:#676C7E;}
+		.d2-2058553999 .fill-N3{fill:#9499AB;}
+		.d2-2058553999 .fill-N4{fill:#CFD2DD;}
+		.d2-2058553999 .fill-N5{fill:#DEE1EB;}
+		.d2-2058553999 .fill-N6{fill:#EEF1F8;}
+		.d2-2058553999 .fill-N7{fill:#FFFFFF;}
+		.d2-2058553999 .fill-B1{fill:#000536;}
+		.d2-2058553999 .fill-B2{fill:#0F66B7;}
+		.d2-2058553999 .fill-B3{fill:#4393DD;}
+		.d2-2058553999 .fill-B4{fill:#87BFF3;}
+		.d2-2058553999 .fill-B5{fill:#BCDDFB;}
+		.d2-2058553999 .fill-B6{fill:#E5F3FF;}
+		.d2-2058553999 .fill-AA2{fill:#076F6F;}
+		.d2-2058553999 .fill-AA4{fill:#77DEDE;}
+		.d2-2058553999 .fill-AA5{fill:#C3F8F8;}
+		.d2-2058553999 .fill-AB4{fill:#C1A2F3;}
+		.d2-2058553999 .fill-AB5{fill:#DACEFB;}
+		.d2-2058553999 .stroke-N1{stroke:#0A0F25;}
+		.d2-2058553999 .stroke-N2{stroke:#676C7E;}
+		.d2-2058553999 .stroke-N3{stroke:#9499AB;}
+		.d2-2058553999 .stroke-N4{stroke:#CFD2DD;}
+		.d2-2058553999 .stroke-N5{stroke:#DEE1EB;}
+		.d2-2058553999 .stroke-N6{stroke:#EEF1F8;}
+		.d2-2058553999 .stroke-N7{stroke:#FFFFFF;}
+		.d2-2058553999 .stroke-B1{stroke:#000536;}
+		.d2-2058553999 .stroke-B2{stroke:#0F66B7;}
+		.d2-2058553999 .stroke-B3{stroke:#4393DD;}
+		.d2-2058553999 .stroke-B4{stroke:#87BFF3;}
+		.d2-2058553999 .stroke-B5{stroke:#BCDDFB;}
+		.d2-2058553999 .stroke-B6{stroke:#E5F3FF;}
+		.d2-2058553999 .stroke-AA2{stroke:#076F6F;}
+		.d2-2058553999 .stroke-AA4{stroke:#77DEDE;}
+		.d2-2058553999 .stroke-AA5{stroke:#C3F8F8;}
+		.d2-2058553999 .stroke-AB4{stroke:#C1A2F3;}
+		.d2-2058553999 .stroke-AB5{stroke:#DACEFB;}
+		.d2-2058553999 .background-color-N1{background-color:#0A0F25;}
+		.d2-2058553999 .background-color-N2{background-color:#676C7E;}
+		.d2-2058553999 .background-color-N3{background-color:#9499AB;}
+		.d2-2058553999 .background-color-N4{background-color:#CFD2DD;}
+		.d2-2058553999 .background-color-N5{background-color:#DEE1EB;}
+		.d2-2058553999 .background-color-N6{background-color:#EEF1F8;}
+		.d2-2058553999 .background-color-N7{background-color:#FFFFFF;}
+		.d2-2058553999 .background-color-B1{background-color:#000536;}
+		.d2-2058553999 .background-color-B2{background-color:#0F66B7;}
+		.d2-2058553999 .background-color-B3{background-color:#4393DD;}
+		.d2-2058553999 .background-color-B4{background-color:#87BFF3;}
+		.d2-2058553999 .background-color-B5{background-color:#BCDDFB;}
+		.d2-2058553999 .background-color-B6{background-color:#E5F3FF;}
+		.d2-2058553999 .background-color-AA2{background-color:#076F6F;}
+		.d2-2058553999 .background-color-AA4{background-color:#77DEDE;}
+		.d2-2058553999 .background-color-AA5{background-color:#C3F8F8;}
+		.d2-2058553999 .background-color-AB4{background-color:#C1A2F3;}
+		.d2-2058553999 .background-color-AB5{background-color:#DACEFB;}
+		.d2-2058553999 .color-N1{color:#0A0F25;}
+		.d2-2058553999 .color-N2{color:#676C7E;}
+		.d2-2058553999 .color-N3{color:#9499AB;}
+		.d2-2058553999 .color-N4{color:#CFD2DD;}
+		.d2-2058553999 .color-N5{color:#DEE1EB;}
+		.d2-2058553999 .color-N6{color:#EEF1F8;}
+		.d2-2058553999 .color-N7{color:#FFFFFF;}
+		.d2-2058553999 .color-B1{color:#000536;}
+		.d2-2058553999 .color-B2{color:#0F66B7;}
+		.d2-2058553999 .color-B3{color:#4393DD;}
+		.d2-2058553999 .color-B4{color:#87BFF3;}
+		.d2-2058553999 .color-B5{color:#BCDDFB;}
+		.d2-2058553999 .color-B6{color:#E5F3FF;}
+		.d2-2058553999 .color-AA2{color:#076F6F;}
+		.d2-2058553999 .color-AA4{color:#77DEDE;}
+		.d2-2058553999 .color-AA5{color:#C3F8F8;}
+		.d2-2058553999 .color-AB4{color:#C1A2F3;}
+		.d2-2058553999 .color-AB5{color:#DACEFB;}.appendix text.text{fill:#0A0F25}.md{--color-fg-default:#0A0F25;--color-fg-muted:#676C7E;--color-fg-subtle:#9499AB;--color-canvas-default:#FFFFFF;--color-canvas-subtle:#EEF1F8;--color-border-default:#000536;--color-border-muted:#0F66B7;--color-neutral-muted:#EEF1F8;--color-accent-fg:#0F66B7;--color-accent-emphasis:#0F66B7;--color-attention-subtle:#676C7E;--color-danger-fg:red;}.sketch-overlay-B1{fill:url(#streaks-darker-d2-2058553999);mix-blend-mode:lighten}.sketch-overlay-B2{fill:url(#streaks-dark-d2-2058553999);mix-blend-mode:overlay}.sketch-overlay-B3{fill:url(#streaks-dark-d2-2058553999);mix-blend-mode:overlay}.sketch-overlay-B4{fill:url(#streaks-normal-d2-2058553999);mix-blend-mode:color-burn}.sketch-overlay-B5{fill:url(#streaks-normal-d2-2058553999);mix-blend-mode:color-burn}.sketch-overlay-B6{fill:url(#streaks-bright-d2-2058553999);mix-blend-mode:darken}.sketch-overlay-AA2{fill:url(#streaks-dark-d2-2058553999);mix-blend-mode:overlay}.sketch-overlay-AA4{fill:url(#streaks-normal-d2-2058553999);mix-blend-mode:color-burn}.sketch-overlay-AA5{fill:url(#streaks-bright-d2-2058553999);mix-blend-mode:darken}.sketch-overlay-AB4{fill:url(#streaks-normal-d2-2058553999);mix-blend-mode:color-burn}.sketch-overlay-AB5{fill:url(#streaks-normal-d2-2058553999);mix-blend-mode:color-burn}.sketch-overlay-N1{fill:url(#streaks-darker-d2-2058553999);mix-blend-mode:lighten}.sketch-overlay-N2{fill:url(#streaks-dark-d2-2058553999);mix-blend-mode:overlay}.sketch-overlay-N3{fill:url(#streaks-normal-d2-2058553999);mix-blend-mode:color-burn}.sketch-overlay-N4{fill:url(#streaks-normal-d2-2058553999);mix-blend-mode:color-burn}.sketch-overlay-N5{fill:url(#streaks-bright-d2-2058553999);mix-blend-mode:darken}.sketch-overlay-N6{fill:url(#streaks-bright-d2-2058553999);mix-blend-mode:darken}.sketch-overlay-N7{fill:url(#streaks-bright-d2-2058553999);mix-blend-mode:darken}.light-code{display: block}.dark-code{display: none}]]></style><g class="cmVx"><g class="shape" ><rect x="318.000000" y="0.000000" width="212.000000" height="66.000000" stroke="#000536" fill="#e0e7ff" class=" stroke-B1" style="stroke-width:2;" /></g><text x="424.000000" y="38.500000" fill="#0A0F25" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">POST account_requests</text></g><g class="YnJhbmNo"><g class="shape" ><path d="M 424 258 C 422 258 421 258 420 258 L 219 213 C 217 213 217 212 219 211 L 420 166 C 422 166 425 166 428 166 L 630 211 C 632 211 632 212 630 213 L 428 258 C 427 258 426 258 424 258 Z" stroke="#000536" fill="#fde68a" class=" stroke-B1" style="stroke-width:2;" /></g><text x="424.000000" y="217.500000" fill="#0A0F25" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">New email or existing user?</text></g><g class="bmV3dXNlcg=="><g class="shape" ><rect x="198.000000" y="379.000000" width="168.000000" height="66.000000" stroke="#000536" fill="#d1fae5" class=" stroke-B1" style="stroke-width:2;" /></g><text x="282.000000" y="417.500000" fill="#0A0F25" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">NEW user created</text></g><g class="cHc="><g class="shape" ><rect x="46.000000" y="566.000000" width="165.000000" height="66.000000" stroke="#000536" fill="#d1fae5" class=" stroke-B1" style="stroke-width:2;" /></g><text x="128.500000" y="604.500000" fill="#0A0F25" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">password = None</text></g><g class="d2VsY29tZQ=="><g class="shape" ><rect x="0.000000" y="753.000000" width="256.000000" height="66.000000" stroke="#000536" fill="#bbf7d0" class=" stroke-B1" style="stroke-width:2;" /></g><text x="128.000000" y="791.500000" fill="#0A0F25" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">Email 67: claim / set password</text></g><g class="c2lnbnVw"><g class="shape" ><rect x="318.000000" y="566.000000" width="235.000000" height="66.000000" stroke="#000536" fill="#fecaca" class=" stroke-B1" style="stroke-width:2;" /></g><text x="435.500000" y="604.500000" fill="#0A0F25" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">fires &#39;user signed up&#39; event</text></g><g class="ZHJpcA=="><g class="shape" ><rect x="316.000000" y="753.000000" width="238.000000" height="66.000000" stroke="#000536" fill="#fecaca" class=" stroke-B1" style="stroke-width:2;" /></g><text x="435.000000" y="791.500000" fill="#0A0F25" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">Onboarding 9.0 wizard drip</text></g><g class="ZXhpc3Rpbmc="><g class="shape" ><rect x="614.000000" y="379.000000" width="210.000000" height="66.000000" stroke="#000536" fill="#e0e7ff" class=" stroke-B1" style="stroke-width:2;" /></g><text x="719.000000" y="417.500000" fill="#0A0F25" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">EXISTING user matched</text></g><g class="Y29kZQ=="><g class="shape" ><rect x="613.000000" y="566.000000" width="213.000000" height="66.000000" stroke="#000536" fill="#bbf7d0" class=" stroke-B1" style="stroke-width:2;" /></g><text x="719.500000" y="604.500000" fill="#0A0F25" class="text-bold fill-N1" style="text-anchor:middle;font-size:16px">Email 69: one-time code</text></g><g class="KHJlcSAtJmd0OyBicmFuY2gpWzBd"><marker id="mk-d2-2058553999-3488378134" markerWidth="10.000000" markerHeight="12.000000" refX="7.000000" refY="6.000000" viewBox="0.000000 0.000000 10.000000 12.000000" orient="auto" markerUnits="userSpaceOnUse"> <polygon points="0.000000,0.000000 10.000000,6.000000 0.000000,12.000000" fill="#000536" class="connection fill-B1" stroke-width="2" /> </marker><path d="M 423.500000 68.000000 C 423.500000 106.000000 423.600006 126.000000 423.960003 162.000200" stroke="#000536" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2058553999-3488378134)" mask="url(#d2-2058553999)" /></g><g class="KGJyYW5jaCAtJmd0OyBuZXd1c2VyKVswXQ=="><path d="M 373.403080 249.204095 C 300.200012 304.399994 281.500000 330.700012 281.500000 375.500000" stroke="#000536" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2058553999-3488378134)" mask="url(#d2-2058553999)" /><text x="305.000000" y="306.000000" fill="#676C7E" class="text-italic fill-N2" style="text-anchor:middle;font-size:16px">new email</text></g><g class="KG5ld3VzZXIgLSZndDsgcHcpWzBd"><path d="M 225.297274 445.549154 C 147.800003 493.299988 128.000000 517.700012 128.000000 562.500000" stroke="#000536" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2058553999-3488378134)" mask="url(#d2-2058553999)" /></g><g class="KHB3IC0mZ3Q7IHdlbGNvbWUpWzBd"><path d="M 128.000000 633.500000 C 128.000000 680.299988 128.000000 704.700012 128.000000 749.500000" stroke="#000536" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2058553999-3488378134)" mask="url(#d2-2058553999)" /><text x="128.500000" y="698.000000" fill="#676C7E" class="text-italic fill-N2" style="text-anchor:middle;font-size:16px">send welcome</text></g><g class="KG5ld3VzZXIgLSZndDsgc2lnbnVwKVswXQ=="><path d="M 337.702726 445.549154 C 415.200012 493.299988 435.000000 517.700012 435.000000 562.500000" stroke="#000536" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2058553999-3488378134)" mask="url(#d2-2058553999)" /><text x="410.000000" y="495.000000" fill="#676C7E" class="text-italic fill-N2" style="text-anchor:middle;font-size:16px">report signup</text></g><g class="KHNpZ251cCAtJmd0OyBkcmlwKVswXQ=="><path d="M 435.000000 633.500000 C 435.000000 680.299988 435.000000 704.700012 435.000000 749.500000" stroke="#000536" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2058553999-3488378134)" mask="url(#d2-2058553999)" /><text x="435.000000" y="698.000000" fill="#676C7E" class="text-italic fill-N2" style="text-anchor:middle;font-size:16px">not excluded (bug)</text></g><g class="KGJyYW5jaCAtJmd0OyBleGlzdGluZylbMF0="><path d="M 506.880483 241.681016 C 676.200012 303.000000 719.000000 330.700012 719.000000 375.500000" stroke="#000536" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2058553999-3488378134)" mask="url(#d2-2058553999)" /><text x="637.500000" y="294.000000" fill="#676C7E" class="text-italic fill-N2" style="text-anchor:middle;font-size:16px">account exists</text></g><g class="KGV4aXN0aW5nIC0mZ3Q7IGNvZGUpWzBd"><path d="M 719.000000 446.500000 C 719.000000 493.299988 719.000000 517.700012 719.000000 562.500000" stroke="#000536" fill="none" class="connection stroke-B1" style="stroke-width:2;" marker-end="url(#mk-d2-2058553999-3488378134)" mask="url(#d2-2058553999)" /><text x="719.000000" y="511.000000" fill="#676C7E" class="text-italic fill-N2" style="text-anchor:middle;font-size:16px">send code</text></g><mask id="d2-2058553999" maskUnits="userSpaceOnUse" x="-21" y="-21" width="868" height="861">
+<rect x="-21" y="-21" width="868" height="861" fill="white"></rect>
+<rect x="269.000000" y="290.000000" width="72" height="21" fill="black"></rect>
+<rect x="79.000000" y="682.000000" width="99" height="21" fill="black"></rect>
+<rect x="364.000000" y="479.000000" width="92" height="21" fill="black"></rect>
+<rect x="372.000000" y="682.000000" width="126" height="21" fill="black"></rect>
+<rect x="589.000000" y="278.000000" width="97" height="21" fill="black"></rect>
+<rect x="683.000000" y="495.000000" width="72" height="21" fill="black"></rect>
+</mask></svg></svg>
+<div class="figcap">Provisioning branches on whether the email already has a PostHog account. The red path is the accidental enrollment into the self-serve wizard drip.</div></div>
+
+<p>Entry point: <code>POST /api/agentic/provisioning/account_requests</code> (<code>ee/api/agentic_provisioning/views.py:288</code>). It routes to one of two handlers:</p>
+<ul>
+<li><b>New email</b> → <code>_handle_new_user</code> (<code>views.py:678</code>): creates the user with <span class="liquid">password=None</span>, fires the <code>"user signed up"</code> analytics event, and queues <code>send_provisioning_welcome</code> → <b>Email&nbsp;67</b>.</li>
+<li><b>Existing PostHog account</b> → <code>_handle_existing_user</code> (<code>views.py:496</code>): browser consent (or silent if the partner is trusted), and sends a one-time link code → <b>Email&nbsp;69</b>. No new user is created, so the wizard drip is <i>not</i> triggered on this path.</li>
+</ul>
+
+<h2>Every email in play</h2>
+<table>
+<thead><tr><th>Email</th><th>CIO id</th><th>Subject</th><th>Fires when</th><th>Should a provisioned user get it?</th></tr></thead>
+<tbody>
+<tr>
+  <td><b>Partner welcome / claim</b><br><span style="color:var(--muted);font-size:12px">template 2830</span></td>
+  <td>Txn&nbsp;67</td>
+  <td>Welcome to PostHog – Set your password</td>
+  <td>New-account provisioning, via <code>send_provisioning_welcome</code> (<code>tasks/email.py:384</code>)</td>
+  <td><span class="tag pass">YES</span> the one email that gets them in</td>
+</tr>
+<tr>
+  <td><b>One-time link code</b><br><span style="color:var(--muted);font-size:12px">template 2982</span></td>
+  <td>Txn&nbsp;69</td>
+  <td>Your one-time code to connect <span class="liquid">{{partner}}</span> to PostHog</td>
+  <td>Existing-account linking (<code>link_method=email_code</code>), via <code>send_provisioning_email_code</code></td>
+  <td><span class="tag pass">YES</span> existing-account path only</td>
+</tr>
+<tr class="mark">
+  <td><b>"Welcome – Wizard"</b><br><span style="color:var(--muted);font-size:12px">action 3102 / template 2093</span></td>
+  <td>Campaign&nbsp;161</td>
+  <td>Welcome to PostHog!</td>
+  <td>Entry email of "Onboarding 9.0" drip — on <code>"user signed up"</code> AND not self-hosted</td>
+  <td><span class="tag fail">NO</span> but it does today (the bug)</td>
+</tr>
+<tr>
+  <td>App – Password Reset<br><span style="color:var(--muted);font-size:12px">template 1654</span></td>
+  <td>Txn&nbsp;32</td>
+  <td>Let's reset your password</td>
+  <td>Standard reset flow (not provisioning). Shares the same <code>/reset/…</code> token mechanism.</td>
+  <td><span style="color:var(--muted)">— only on request</span></td>
+</tr>
+</tbody>
+</table>
+
+<h2>The two emails you saw, side by side</h2>
+<div class="twocol">
+  <div class="email">
+    <div class="ehead">
+      <div class="subj">Welcome to PostHog – Set your password</div>
+      <div class="meta">Customer.io Txn 67 · template "Welcome to PostHog from a partner" · <span class="tag pass">correct</span></div>
+    </div>
+    <div class="ebody">
+      <p><b>All set up and waiting</b></p>
+      <p>There's a PostHog account with your name on it. <span class="liquid">{{partner_name}}</span> just spun up a PostHog account in your name. Hit the button below to claim it – you'll be straight in.</p>
+      <span class="cta">Claim your account →</span>
+      <p style="font-size:12px;color:var(--muted)">Button + fallback link both point to <span class="liquid">{{site_url}}/reset/{uuid}/{token}</span> — the set-password page. <b>This is the login mechanism.</b></p>
+      <p style="font-size:12px">…the fastest way to get set up is our AI wizard: <span class="liquid">npx @posthog/wizard@latest</span></p>
+    </div>
+  </div>
+  <div class="email">
+    <div class="ehead">
+      <div class="subj">Welcome to PostHog!</div>
+      <div class="meta">Customer.io Campaign 161 · template "Welcome – Wizard" · <span class="tag fail">should not fire</span></div>
+    </div>
+    <div class="ebody">
+      <p><b>Set products to self-driving with our wizard</b></p>
+      <p>Hi. I'm Joe (not pictured). I'm going to send you a few things to help you get started. No webinars or sales fluff, just tips for starting self-driving products.</p>
+      <p>For now, our wizard can setup everything for you with one terminal prompt:</p>
+      <p><span class="liquid">✨ npx @posthog/wizard@latest ✨</span></p>
+      <p style="font-size:12px;color:var(--muted)">This is email <b>#1 of a 41-email drip</b>. It is the self-serve onboarding sequence — it duplicates the wizard pitch the claim email already made.</p>
+    </div>
+  </div>
+</div>
+
+<h2>Why the wizard email leaks through</h2>
+<p>"Onboarding 9.0" (campaign 161) is an event-triggered drip. Its entry rule, decoded from the live config:</p>
+<pre><code>trigger event : "user signed up"
+filter        : NOT in segment 16   ("Self-hosted Users" — users not on Cloud)
+subscription  : topic 2</code></pre>
+<div class="note warn">
+<b>The exclusion list contains exactly one item, and it's the wrong concern.</b> The only thing that keeps a user <i>out</i> of the wizard drip is being self-hosted. A partner-provisioned Cloud account fires the same <code>"user signed up"</code> event as a self-serve signup, isn't self-hosted, and therefore enters the drip. The provisioning path already carries everything needed to tell them apart — it just isn't used as a filter:
+<ul style="margin:8px 0 0">
+<li><span class="liquid">signup_backend_processor = "AgenticProvisioning"</span> on the event (<code>event_usage.py:52</code>)</li>
+<li><span class="liquid">is_email_verified = NULL</span> and <span class="liquid">has_password_set = false</span> on the person</li>
+</ul>
+</div>
+
+<h2>Meta-analysis: which emails <i>should</i> fire</h2>
+<table>
+<thead><tr><th>Scenario</th><th>Send</th><th>Suppress</th><th>Status today</th></tr></thead>
+<tbody>
+<tr class="done">
+  <td><b>New account, provisioned by partner</b></td>
+  <td>Email 67 (claim / set password) — the single get-in email</td>
+  <td>Onboarding 9.0 wizard drip</td>
+  <td><span class="tag fail">broken</span> — also sends the wizard drip</td>
+</tr>
+<tr class="done">
+  <td><b>Existing account, linked to partner</b></td>
+  <td>Email 69 (one-time code)</td>
+  <td>Everything else (no new user ⇒ no "user signed up")</td>
+  <td><span class="tag pass">correct</span></td>
+</tr>
+<tr>
+  <td><b>Normal self-serve signup</b></td>
+  <td>Onboarding 9.0 wizard drip</td>
+  <td>Provisioning emails (never triggered)</td>
+  <td><span class="tag pass">correct</span></td>
+</tr>
+</tbody>
+</table>
+
+<h2>Recommendations</h2>
+<div class="step"><ol class="steps">
+<li><b>Fix the wizard leak (the real bug).</b> Add a negated exclusion to campaign 161's entry filter for provisioned users — define a Customer.io segment on <span class="liquid">signup_backend_processor = "AgenticProvisioning"</span> and negate it, exactly the way "Self-hosted Users" (segment 16) is already negated. Mirrors the existing pattern, no backend change needed.</li>
+<li><b>Decide who owns the wizard pitch.</b> The claim email <i>and</i> the wizard drip both push <span class="liquid">npx @posthog/wizard@latest</span>. For provisioned users the claim email should own it; suppressing the drip (step 1) resolves the duplication.</li>
+<li><b>Tighten the claim email's framing (the perceived bug).</b> Nothing is broken — but subject "Set your password" vs button "Claim your account" reads as two different things. Align them, e.g. button <i>"Claim your account &amp; set password"</i>, so users don't wait for a second email that never comes.</li>
+</ol></div>
+
+<h2>Appendix — code references</h2>
+<table>
+<thead><tr><th>What</th><th>Location</th></tr></thead>
+<tbody>
+<tr><td>Provisioning entry (account_requests)</td><td><code>posthog/ee/api/agentic_provisioning/views.py:288</code></td></tr>
+<tr><td>New-user handler + welcome send</td><td><code>views.py:678</code> → <code>send_provisioning_welcome.delay(...)</code> ~line 757</td></tr>
+<tr><td>Existing-user handler</td><td><code>views.py:496</code></td></tr>
+<tr><td>Welcome email task (subject, reset link)</td><td><code>posthog/posthog/tasks/email.py:384</code></td></tr>
+<tr><td>Template → CIO id map (<span class="liquid">"provisioning_welcome": "67"</span>)</td><td><code>posthog/posthog/email.py:123</code></td></tr>
+<tr><td>"user signed up" event + backend_processor</td><td><code>posthog/posthog/event_usage.py:28-73</code></td></tr>
+<tr><td>HogFarm provisioning client (delegates to PostHog)</td><td><code>hogfarm/lib/posthog-provisioning.ts</code></td></tr>
+</tbody>
+</table>
+
+<footer>Generated from live Customer.io template content (env 127208) and the local PostHog backend. Email bodies quoted are the actual rendered templates; campaign entry rules decoded from campaign 161's stored filter.</footer>
+
+</div>
+<script>
+(function(){
+  var KEY = 'htmldoc-theme', root = document.documentElement, cur;
+  var saved = null; try { saved = localStorage.getItem(KEY); } catch(e){}
+  function apply(t){ cur = t === 'light' ? 'light' : 'dark';
+    if(cur === 'light') root.setAttribute('data-theme','light'); else root.removeAttribute('data-theme'); }
+  apply(saved || (window.matchMedia
+    && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'));
+  var btn = document.createElement('button');
+  btn.className = 'theme-toggle'; btn.type = 'button';
+  btn.setAttribute('aria-label', 'Toggle light or dark theme');
+  function label(){ btn.textContent = cur === 'light' ? '☾ Dark' : '☀ Light'; }
+  label();
+  btn.addEventListener('click', function(){
+    apply(cur === 'light' ? 'dark' : 'light'); label();
+    try { localStorage.setItem(KEY, cur); } catch(e){}
+  });
+  document.body.appendChild(btn);
+})();
+(function(){
+  var galleries = [].slice.call(document.querySelectorAll('.shots'));
+  if(!galleries.length) return;
+  var lb = document.createElement('div');
+  lb.className = 'lb';
+  lb.innerHTML =
+    '<div class="lb-bar"><span class="ct"></span><span class="sp"></span>'+
+      '<button data-act="fs">⛶ Fullscreen</button>'+
+      '<button data-act="close">✕ Close</button></div>'+
+    '<div class="lb-body"><div class="lb-stage">'+
+      '<button class="lb-arrow prev" data-act="prev" aria-label="Previous">‹</button>'+
+      '<img alt="">'+
+      '<button class="lb-arrow next" data-act="next" aria-label="Next">›</button>'+
+    '</div><div class="lb-cap"></div></div>';
+  document.body.appendChild(lb);
+  var img = lb.querySelector('.lb-stage img'),
+      cap = lb.querySelector('.lb-cap'),
+      ct  = lb.querySelector('.ct'),
+      prev = lb.querySelector('[data-act=prev]'),
+      next = lb.querySelector('[data-act=next]');
+  var group = [], idx = 0;
+  function render(){
+    var s = group[idx], im = s.querySelector('img'), cp = s.querySelector('.cap');
+    img.src = im.currentSrc || im.src; img.alt = im.alt || '';
+    cap.innerHTML = cp ? cp.innerHTML : '';
+    ct.textContent = (idx+1) + ' / ' + group.length;
+    prev.disabled = idx === 0;
+    next.disabled = idx === group.length - 1;
+  }
+  function open(g, i){ group = g; idx = i; render(); lb.classList.add('open');
+    document.body.style.overflow = 'hidden'; }
+  function close(){ lb.classList.remove('open'); document.body.style.overflow = '';
+    if(document.fullscreenElement) document.exitFullscreen(); }
+  function go(d){ var n = idx + d; if(n < 0 || n >= group.length) return; idx = n; render(); }
+  galleries.forEach(function(gallery){
+    var items = [].slice.call(gallery.querySelectorAll('.shot'));
+    items.forEach(function(s, i){
+      var im = s.querySelector('img'); if(!im) return;
+      im.addEventListener('click', function(){ open(items, i); });
+    });
+  });
+  lb.addEventListener('click', function(e){
+    var act = e.target.getAttribute && e.target.getAttribute('data-act');
+    if(act === 'close') return close();
+    if(act === 'prev') return go(-1);
+    if(act === 'next') return go(1);
+    if(act === 'fs') return document.fullscreenElement ? document.exitFullscreen()
+                          : (lb.requestFullscreen && lb.requestFullscreen());
+    if(e.target === lb || e.target.classList.contains('lb-body')
+       || e.target.classList.contains('lb-stage')) close();
+  });
+  document.addEventListener('keydown', function(e){
+    if(!lb.classList.contains('open')) return;
+    if(e.key === 'Escape') close();
+    else if(e.key === 'ArrowLeft') go(-1);
+    else if(e.key === 'ArrowRight') go(1);
+  });
+})();
+</script>
+</body>
+</html>

@@ -27,7 +27,7 @@ export async function enableSessionRecording(token: string, teamId: string): Pro
   }
 }
 
-async function latestRecordingId(token: string, teamId: string): Promise<string | null> {
+async function latestRecordingId(token: string, teamId: string): Promise<{ id: string | null; debug: string }> {
   const res = await fetch(`${HOST}/api/projects/${teamId}/query/`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -38,9 +38,10 @@ async function latestRecordingId(token: string, teamId: string): Promise<string 
       },
     }),
   });
-  if (!res.ok) return null;
+  if (!res.ok) return { id: null, debug: `query_${res.status}:${(await res.text()).slice(0, 140)}` };
   const body = await res.json();
-  return (body.results?.[0]?.[0] as string) ?? null;
+  const id = (body.results?.[0]?.[0] as string) ?? null;
+  return { id, debug: id ? `recording ${id}` : "no_recording_rows" };
 }
 
 /**
@@ -58,11 +59,16 @@ async function latestRecordingId(token: string, teamId: string): Promise<string 
  * Note: a shared recording is publicly viewable by anyone with the link. Fine for
  * this demo; a production builder would gate or expire these.
  */
-export async function getReplayEmbedUrl(farm: Farm): Promise<string | null> {
+export interface ReplayEmbed {
+  url: string | null;
+  reason: string; // surfaced via ?debug=1 on the dashboard
+}
+
+export async function getReplayEmbedUrl(farm: Farm): Promise<ReplayEmbed> {
   try {
     const token = await validAccessToken(farm);
-    const recordingId = await latestRecordingId(token, farm.posthogTeamId);
-    if (!recordingId) return null;
+    const { id: recordingId, debug } = await latestRecordingId(token, farm.posthogTeamId);
+    if (!recordingId) return { url: null, reason: debug };
 
     const res = await fetch(
       `${HOST}/api/projects/${farm.posthogTeamId}/session_recordings/${recordingId}/sharing/`,
@@ -72,14 +78,14 @@ export async function getReplayEmbedUrl(farm: Farm): Promise<string | null> {
         body: JSON.stringify({ enabled: true }),
       },
     );
-    if (!res.ok) return null;
+    if (!res.ok) return { url: null, reason: `sharing_${res.status}:${(await res.text()).slice(0, 140)}` };
 
     const { access_token } = await res.json();
-    if (!access_token) return null;
+    if (!access_token) return { url: null, reason: "sharing_ok_but_no_token" };
 
     const host = PUBLIC_HOST[farm.region] ?? PUBLIC_HOST.US;
-    return `${host}/embedded/${access_token}`;
-  } catch {
-    return null;
+    return { url: `${host}/embedded/${access_token}`, reason: "ok" };
+  } catch (e) {
+    return { url: null, reason: `error:${String(e).slice(0, 140)}` };
   }
 }
