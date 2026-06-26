@@ -1,6 +1,6 @@
 # 🌾 HogFarm
 
-A toy farm-website builder that provisions PostHog analytics for its users with
+A farm-website builder that provisions PostHog analytics for its users with
 zero manual setup. It's a **reference implementation of the PostHog [agentic
 provisioning API](https://posthog.com/docs/integrate/provisioning)** — the thing
 partners like Insforge, Expo, and Replit use to spin up PostHog accounts for

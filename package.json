@@ -2,7 +2,7 @@
   "name": "hogfarm",
   "version": "0.1.0",
   "private": true,
-  "description": "A toy site builder that provisions PostHog analytics for its users — a reference implementation of the PostHog agentic provisioning API (CIMD + OAuth/PKCE).",
+  "description": "A farm-website builder that provisions PostHog analytics for its users — a reference implementation of the PostHog agentic provisioning API (CIMD + OAuth/PKCE).",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
